@@ -1,0 +1,12 @@
+[package]
+name = "oltsp"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+graphlib = { version = "^0.1.0", path = "../graphlib" }
+rustc-hash = "1.1.0"
+csv = "1.1.6"
+log = "0.4.14"

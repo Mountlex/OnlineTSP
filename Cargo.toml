@@ -1,0 +1,29 @@
+[package]
+name = "OnlineTSP"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "oltsp"
+path = "src/main.rs"
+
+[workspace]
+members = [
+    "graphlib",
+    "oltsp",
+]
+
+[dependencies]
+graphlib = { version = "^0.1.0", path = "graphlib" }
+oltsp = { version = "^0.1.0", path = "oltsp" }
+clap = { version = "3.0.14", features = ["derive"] }
+rayon = "1.5.1"
+rand = "0.8.4"
+serde = { version = "1.0", features = ["derive"] }
+csv = "1.1.6"
+anyhow = "1.0.37"
+log = "0.4.11"
+chrono = "0.4"
+fern = { version = "0.6.0", features = ["colored"] }

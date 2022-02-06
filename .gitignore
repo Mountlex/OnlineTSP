@@ -1,0 +1,7 @@
+/target
+/cache
+/logs
+/env
+
+*.csv
+data/osm/manhattan.dat
