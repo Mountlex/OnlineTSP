@@ -56,8 +56,7 @@ fn main() -> Result<()> {
             log::info!("    ...success!");
 
             log::info!("Importing metric from file...");
-            let mut sp = sp::load_or_compute(&"data/osm/manhattan.dat".into(), &graph)?;
-            sp.set_scale(exp.scale);
+            let sp = sp::load_or_compute(&"data/osm/manhattan.dat".into(), &graph, exp.scale)?;
             log::info!("    ...success!");
 
             let paths: Vec<std::fs::DirEntry> = std::fs::read_dir(exp.instance_set)?
@@ -155,7 +154,7 @@ fn set_up_logging() -> Result<(), fern::InitError> {
                 message = message
             ));
         })
-        .level(log::LevelFilter::Trace)
+        .level(log::LevelFilter::Info)
         .chain(fern::log_file(format!(
             "logs/{}.log",
             chrono::Local::now().format("%d%m%Y-%H%M")

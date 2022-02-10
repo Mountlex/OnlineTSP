@@ -234,17 +234,18 @@ pub fn replan(
     loop {
         let start_time = env.time;
 
-        log::trace!("Replan: compute tsp path from {} to origin", env.pos);
+        log::info!("Replan: compute tsp path from {} to origin", env.pos);
         let tour_graph = SpMetricGraph::from_metric_on_nodes(
             env.current_nodes.clone(),
             env.metric_graph.metric_clone(),
         );
         let tour = tsp::tsp_path(&tour_graph, env.pos, env.origin, sol_type);
-        log::trace!("Replan: current tour = {:?}", tour);
+        log::info!("Replan: current tour = {:?}", tour);
 
         if let Some(back) = back_until {
+            // here is a bug
             if env.next_release.is_none() || env.next_release.unwrap() > back {
-                log::trace!("Replan: follow tour and be back by {}", back);
+                log::info!("Replan: follow tour and be back by {}", back);
                 let (abort, served) =
                     env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
                 env.remove_served_requests(&served);
@@ -258,7 +259,7 @@ pub fn replan(
                 }
             }
         }
-        log::trace!("Replan: follow tour until next release date");
+        log::info!("Replan: follow tour until next release date");
         let served = env.follow_tour_until_next_release(TimedTour::from_tour(tour));
         env.remove_served_requests(&served);
 
@@ -275,7 +276,7 @@ pub fn replan(
             }
         }
         if wait_until > env.time {
-            log::trace!("Replan: wait until {}", wait_until);
+            log::info!("Replan: wait until {}", wait_until);
         }
         env.time = wait_until;
 
@@ -291,6 +292,8 @@ pub fn learning_augmented(
     prediction: Instance<NodeRequest>,
     sol_type: SolutionType,
 ) -> usize {
+    log::info!("======== Starting Predict-Replan with alpha = {}.", &alpha);
+
     let mut pred_nodes = prediction.nodes();
     let mut instances_nodes: Vec<Node> = env.metric_graph.nodes().collect();
     instances_nodes.append(&mut pred_nodes);
@@ -305,8 +308,8 @@ pub fn learning_augmented(
         .as_float();
     let back_until = (opt_pred * alpha).floor() as usize;
 
-    log::trace!("Predict-Replan: execute replan until time {}.", back_until);
-    replan(env, Some(back_until), sol_type);
+    log::info!("Predict-Replan: execute replan until time {}.", back_until);
+    ignore(env, Some(back_until), sol_type);
     assert_eq!(env.pos, env.origin);
     assert!(env.time <= back_until);
 
@@ -316,6 +319,8 @@ pub fn learning_augmented(
             release_dates.insert(node, 0);
         }
     }
+
+    // some predicted requests may already be served, but we dont care?
     env.add_requests(prediction.nodes());
 
     if let Some(next_release) = env.next_release {
@@ -327,7 +332,7 @@ pub fn learning_augmented(
     }
 
 
-    log::trace!("Predict-Replan: Start phase (iii) at time {}; next release {:?}", env.time, env.next_release);
+    log::info!("Predict-Replan: Start phase (iii) at time {}; next release {:?}", env.time, env.next_release);
 
     // Phase (iii)
     loop {
@@ -337,19 +342,47 @@ pub fn learning_augmented(
             env.current_nodes.clone(),
             env.metric_graph.metric_clone(),
         );
-        let max_rd: usize = release_dates.values().copied().max().unwrap();
+
+        // update release date w.r.t. current time
+        let updated_release_dates: FxHashMap<Node, usize> = release_dates.iter().map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0)as usize ) ).collect();
+
+        let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
         let (_, tour) = tsp::tsp_rd_path(
             &tour_graph,
-            &release_dates,
+            &updated_release_dates,
             env.pos,
             env.origin,
             max_t,
             sol_type,
         );
-        log::trace!("Predict-Replan: current tour = {:?}", tour.nodes());
+        log::info!("Predict-Replan: current tour = {:?}", tour.nodes());
 
-        log::trace!("Predict-Replan: follow tour until next release date");
+        let mut r = env.next_release;
+        'req_search: while let Some(next_release) = r {
+            let (reqs, r_new) = env.instance.released_at(next_release);
+            for req in reqs {
+                let mut on_tour = false;
+                for (tour_node, tour_wait) in tour.nodes().iter().zip(tour.waiting_until()) {
+                    if *tour_node == req {
+                        on_tour = true;
+                    }
+                    // is this right?
+                    if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() < next_release {
+                        log::info!("Predict-Replan: req {} on current tour, but release later {} > {}", req, next_release, tour_wait.unwrap());
+                        break 'req_search;
+                    }
+                }
+                if !on_tour {
+                    log::info!("Predict-Replan: req {} not found on current tour!", req);
+                    break 'req_search;
+                }
+            }
+            r = r_new;
+        }
+        env.next_release = r;
+
+        log::info!("Predict-Replan: follow tour until next release date");
         let served = env.follow_tour_until_next_release(tour);
         env.remove_served_requests(&served);
 

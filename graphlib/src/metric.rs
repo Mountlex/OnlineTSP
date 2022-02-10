@@ -139,6 +139,7 @@ impl SpMetricGraph {
                 break;
             } else if walked + edge_cost > at {
                 let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
+                self.metric.split_edge_at(new_node, edge[0], edge[1], at - walked, edge_cost, base_graph);
                 at_node = Some(new_node);
                 break;
             }
@@ -148,7 +149,7 @@ impl SpMetricGraph {
         let new_node = at_node.unwrap();
         if !self.nodes.contains(&new_node) {
             self.node_index.add_node(new_node);
-            self.metric.add_node(new_node, base_graph)
+            
         }
 
         return new_node;

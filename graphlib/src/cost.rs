@@ -110,6 +110,20 @@ impl Div<f32> for Cost {
     }
 }
 
+impl Div<f64> for Cost {
+    type Output = Self;
+    fn div(self, rhs: f64) -> Self::Output {
+        Cost((self.0 as f64 / rhs).floor() as usize)
+    }
+}
+
+impl Div<usize> for Cost {
+    type Output = Self;
+    fn div(self, rhs: usize) -> Self::Output {
+        Cost(self.0 / rhs)
+    }
+}
+
 impl AddAssign for Cost {
     fn add_assign(&mut self, rhs: Cost) {
         *self = Cost(self.0 + rhs.0)

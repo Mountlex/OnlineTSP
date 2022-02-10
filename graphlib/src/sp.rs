@@ -1,4 +1,4 @@
-use std::{path::PathBuf, io::{BufReader, BufWriter}, fs::File};
+use std::{path::PathBuf, io::{BufReader, BufWriter}, fs::File, ops::{Div, Mul}};
 use anyhow::Result;
 use ndarray::{Array2, ArrayView};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -24,12 +24,15 @@ enum PathCost {
 pub struct ShortestPathsCache {
     matrix: Array2<PathCost>,
     index: NodeIndex,
-    scale: usize,
+   
 }
 
 impl ShortestPathsCache {
-    pub fn set_scale(&mut self, scale: usize) {
-        self.scale = scale
+    pub fn scale(&mut self, scale: usize) {
+        self.matrix.map_inplace(|entry| *entry = match entry {
+            PathCost::Unreachable => PathCost::Unreachable,
+            PathCost::Path(cost) => PathCost::Path(*cost / scale)
+        })
     }
 
     pub fn empty<'a, G>(graph: &'a G) -> Self
@@ -47,7 +50,6 @@ impl ShortestPathsCache {
         ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&nodes),
-            scale: 1,
         }
     }
 
@@ -75,6 +77,31 @@ impl ShortestPathsCache {
         }
     }
 
+    pub fn split_edge_at<'a, G>(&mut self, new_node: Node, source: Node, sink: Node, at: Cost, edge_cost: Cost, graph: &'a G)
+    where
+        G: Graph<'a>,
+    {
+        let goals = graph
+            .nodes()
+            .filter(|node| self.index.get(node).is_some())
+            .collect::<Vec<Node>>();
+        let idx = self.index.add_node(new_node);
+        self.matrix
+            .push_row(ArrayView::from(&vec![PathCost::Unreachable; idx]))
+            .unwrap();
+        self.matrix
+            .push_column(ArrayView::from(&vec![PathCost::Unreachable; idx + 1]))
+            .unwrap();
+        assert!(self.matrix.is_square());
+
+        self.set(new_node, new_node, Cost::new(0));       
+        for node in goals {
+            let p1 = self.get(node, source) + at;
+            let p2 = self.get(node, sink) + edge_cost - at;
+            self.set(new_node, node, Cost::new(p1.get_usize().min(p2.get_usize())));
+        }
+    }
+
     pub fn compute_all_graph_pairs<'a, G>(graph: &'a G) -> Self
     where
         G: Graph<'a>,
@@ -99,7 +126,6 @@ impl ShortestPathsCache {
         let mut sp = ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&sorted_nodes),
-            scale: 1,
         };
 
         for (i, &n1) in sorted_nodes.iter().enumerate() {
@@ -144,7 +170,7 @@ impl ShortestPathsCache {
         let mut sp = ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&sorted_nodes),
-            scale: 1,
+         
         };
 
         let indexed_nodes: Vec<(usize, Node)> = sorted_nodes.iter().copied().enumerate().collect();
@@ -211,7 +237,7 @@ impl ShortestPathsCache {
         let x = i1.min(i2);
         let y = i1.max(i2);
         if let PathCost::Path(cost) = self.matrix[[x, y]] {
-            Cost::new((cost.as_float() / (self.scale as f64)) as usize)
+            cost
         } else {
             panic!("No path known!")
         }
@@ -234,13 +260,14 @@ impl ShortestPathsCache {
 
 
 
-pub fn load_or_compute<'a, G>(path: &PathBuf, graph: &'a G) -> Result<ShortestPathsCache>
+pub fn load_or_compute<'a, G>(path: &PathBuf, graph: &'a G, scale: usize,) -> Result<ShortestPathsCache>
 where
     G: Graph<'a> + Sync, {
         if path.is_file() {
             let file = File::open(path)?;
             let reader = BufReader::new(file);
-            let sp: ShortestPathsCache = bincode::deserialize_from(reader)?;
+            let mut sp: ShortestPathsCache = bincode::deserialize_from(reader)?;
+            sp.scale(scale);
             Ok(sp)
         } else {
             let sp = ShortestPathsCache::compute_all_graph_pairs_par(graph);

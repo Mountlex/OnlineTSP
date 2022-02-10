@@ -54,7 +54,7 @@ fn blossom_algorithm<'a, G>(
 where
     G: Nodes<'a> + Weighted + GraphSize + Metric,
 {
-    log::info!("Using Edmond's blossom algorithm to compute optimal matching.");
+    log::trace!("Using Edmond's blossom algorithm to compute optimal matching.");
 
     let input_file = &format!(
         "input_{}.txt",
@@ -78,7 +78,7 @@ where
         index[node.id() - min_node_index] = i;
     }
 
-    log::info!("Computing shortest path completion between odd vertices.");
+    log::trace!("Computing shortest path completion between odd vertices.");
     let mut edges: Vec<Edge> = vec![];
     for n1 in odd_vertices {
         for n2 in odd_vertices {
@@ -93,7 +93,7 @@ where
             }
         }
     }
-    log::info!("Writing matching data to file {}.", input_file);
+    log::trace!("Writing matching data to file {}.", input_file);
 
     let input = fs::File::create(input_file).expect("Could not create file");
     let mut writer = BufWriter::new(input);
@@ -105,7 +105,7 @@ where
     }
     writer.flush().unwrap();
 
-    log::info!("Calling Blossom V algorithm...");
+    log::trace!("Calling Blossom V algorithm...");
     match Command::new("./blossom/blossom5")
         .arg("-e")
         .arg(input_file)
@@ -114,7 +114,7 @@ where
         .output()
     {
         Ok(res) => {
-            log::info!(
+            log::trace!(
                 "Finished! Blossom V output: {}",
                 String::from_utf8(res.stdout).unwrap()
             );
@@ -134,7 +134,7 @@ where
                 matching[n2] = n1;
             }
 
-            log::info!("Removing data files.");
+            log::trace!("Removing data files.");
 
             fs::remove_file(input_file).unwrap();
             fs::remove_file(output_file).unwrap();
@@ -164,7 +164,7 @@ fn greedy_matching<'a, G>(
 where
     G: Nodes<'a> + Weighted + GraphSize + Metric,
 {
-    log::info!("Using a greedy algorithm to compute approximation.");
+    log::trace!("Using a greedy algorithm to compute approximation.");
 
     let mut nodes = odd_vertices.to_owned();
     let mut rng = rand::thread_rng();
@@ -233,7 +233,7 @@ fn min_cost_perfect_matching<'a, G>(
 where
     G: Nodes<'a> + Weighted + GraphSize + Metric,
 {
-    log::info!("Using an ILP solver to compute optimal matching.");
+    log::trace!("Using an ILP solver to compute optimal matching.");
 
     let mut model = LpProblem::new("matching", LpObjective::Minimize);
     let mut edges: Vec<Edge> = vec![];
@@ -252,7 +252,7 @@ where
         }
     }
 
-    log::info!("Min-Cost perfect matching: {} edges", edges.len());
+    log::trace!("Min-Cost perfect matching: {} edges", edges.len());
 
     if edges.is_empty() {
         log::warn!("There are no edges. Break min cost matching.");
@@ -419,7 +419,7 @@ where
 
     assert!(odd_vertices.len() % 2 == 0);
 
-    log::info!(
+    log::trace!(
         "Computing a min-cost perfect matching on {} vertices.",
         odd_vertices.len()
     );
@@ -445,13 +445,13 @@ where
     }
     assert!(compute_odd_vertices(&multi_graph).is_empty());
 
-    log::info!("MST value: {}", mst.total_weight());
-    log::info!("Min-Cost perfect matching value: {}", matching_cost);
+    log::trace!("MST value: {}", mst.total_weight());
+    log::trace!("Min-Cost perfect matching value: {}", matching_cost);
 
     let eulerian_tour = eulerian_path(start_node, &multi_graph);
     let tour = construct_tour(eulerian_tour, &multi_graph);
 
-    log::info!(
+    log::trace!(
         "Finished computing TSP approximation by Christofides algorithm. Tour = {:?}",
         tour.nodes()
     );

@@ -3,7 +3,7 @@ use std::{error::Error, path::PathBuf};
 use graphlib::{
     mst,
     tsp::{tsp_rd_tour, SolutionType, TimedTour},
-    AdjListGraph, Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, SpMetricGraph, Weighted,
+    Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, SpMetricGraph, Weighted,
 };
 use rustc_hash::FxHashMap;
 
@@ -267,6 +267,8 @@ pub fn instance_from_file(filename: &PathBuf) -> Result<Instance<NodeRequest>, B
 
 #[cfg(test)]
 mod test_instance {
+    use graphlib::AdjListGraph;
+
     use super::*;
 
     #[test]
