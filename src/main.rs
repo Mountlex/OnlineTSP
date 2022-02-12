@@ -75,7 +75,7 @@ fn main() -> Result<()> {
                     let metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp.clone());
 
                     log::info!("Computing optimal solution for {:?}...", file.file_name());
-                    let (opt, tour) = instance.optimal_solution(start_node, sp.clone(), graphlib::tsp::SolutionType::Approx);
+                    let (opt, tour) = instance.optimal_solution(start_node, &sp, graphlib::tsp::SolutionType::Approx);
                     log::info!("    ...success. Optimal tour = {}", tour);
 
                     let mut results: Vec<Exp1Result> = vec![];

@@ -115,6 +115,10 @@ impl SpMetricGraph {
         self.metric.clone()
     }
 
+    pub fn metric_ref(&self) -> &ShortestPathsCache {
+        &self.metric
+    }
+
     pub fn into_metric(self) -> ShortestPathsCache {
         self.metric
     }

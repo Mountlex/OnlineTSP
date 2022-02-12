@@ -5,3 +5,7 @@
 
 *.csv
 data/osm/manhattan.dat
+
+
+*.svg
+perf.data

@@ -3,7 +3,7 @@ use std::{error::Error, path::PathBuf};
 use graphlib::{
     mst,
     tsp::{tsp_rd_tour, SolutionType, TimedTour, self},
-    Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, SpMetricGraph, Weighted,
+    Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, SpMetricGraph, Weighted, MetricView,
 };
 use std::fmt::Debug;
 use rustc_hash::FxHashMap;
@@ -13,7 +13,7 @@ pub trait Request {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct NodeRequest(Node);
+pub struct NodeRequest(pub Node);
 
 impl From<usize> for NodeRequest {
     fn from(id: usize) -> Self {
@@ -29,7 +29,7 @@ impl Request for NodeRequest {
 
 #[derive(Default, Clone, Debug)]
 pub struct Instance<R> {
-    requests: Vec<(R, usize)>,
+    pub requests: Vec<(R, usize)>,
 }
 
 impl From<Vec<(usize, usize)>> for Instance<NodeRequest> {
@@ -55,6 +55,10 @@ impl<R> Instance<R>
 where
     R: Clone + Request,
 {
+    pub fn len(&self) -> usize {
+        self.requests.len()
+    }
+
     pub fn nodes(&self) -> Vec<Node> {
         self.requests.iter().map(|(r, _)| r.node()).collect()
     }
@@ -109,7 +113,7 @@ where
     pub fn optimal_solution<M>(
         &self,
         start_node: Node,
-        metric: M,
+        metric: &M,
         sol_type: SolutionType,
     ) -> (Cost, TimedTour) where M: Metric + Clone + Debug {
 
@@ -125,7 +129,7 @@ where
         nodes.sort();
         nodes.dedup();
 
-        let tour_graph = MetricGraph::from_metric_on_nodes(
+        let tour_graph = MetricView::from_metric_on_nodes(
             nodes,
             metric,
         );
@@ -141,7 +145,7 @@ where
         )
         }
         
-        pub fn lower_bound<M>(&self, start_node: Node, metric: M) -> Cost where M: Metric + Clone + Debug {
+        pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> Cost where M: Metric + Clone + Debug {
             let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
         approx
     }
@@ -272,7 +276,7 @@ mod test_instance {
 
         let instance: Instance<NodeRequest> = vec![(4, 1), (2, 7)].into();
 
-        let (obj, tour) = instance.optimal_solution(1.into(), sp, SolutionType::Optimal);
+        let (obj, tour) = instance.optimal_solution(1.into(), &sp, SolutionType::Optimal);
 
         assert_eq!(tour.nodes(), vec![1.into(), 4.into(), 2.into(), 1.into()]);
         assert_eq!(

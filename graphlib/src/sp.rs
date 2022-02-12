@@ -1,6 +1,6 @@
 use std::{path::PathBuf, io::{BufReader, BufWriter}, fs::File, ops::{Div, Mul}};
 use anyhow::Result;
-use ndarray::{Array2, ArrayView};
+use ndarray::{Array2, ArrayView, NdProducer, Axis};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Serialize, Deserialize};
 
@@ -143,6 +143,8 @@ impl ShortestPathsCache {
         sp
     }
 
+
+
     pub fn compute_all_graph_pairs_par<'a, G>(graph: &'a G) -> Self
     where
         G: Graph<'a> + Sync,
@@ -238,6 +240,10 @@ impl ShortestPathsCache {
         let i1 = self.index[&n1];
         let i2 = self.index[&n2];
 
+        self.get_by_index(i1, i2)
+    }
+
+    pub fn get_by_index(&self, i1: usize, i2: usize) -> Cost {
         let x = i1.min(i2);
         let y = i1.max(i2);
         if let PathCost::Path(cost) = self.matrix[[x, y]] {

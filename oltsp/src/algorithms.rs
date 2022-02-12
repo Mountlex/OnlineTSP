@@ -303,7 +303,7 @@ pub fn learning_augmented(
     env.metric_graph = metric_graph;
 
     let opt_pred = prediction
-        .optimal_solution(env.origin, env.metric_graph.metric_clone(), sol_type)
+        .optimal_solution(env.origin, env.metric_graph.metric_ref(), sol_type)
         .0
         .as_float();
     let back_until = (opt_pred * alpha).floor() as usize;

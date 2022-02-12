@@ -1,5 +1,6 @@
 mod algorithms;
 mod instance;
+mod prediction;
 
 use algorithms::Environment;
 use graphlib::{tsp::SolutionType, AdjListGraph, Node, SpMetricGraph};
