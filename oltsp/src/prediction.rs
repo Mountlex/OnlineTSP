@@ -22,6 +22,10 @@ pub fn gaussian_prediction(
         instance.len()
     };
 
+    if sigma == 0.0 {
+        return instance.clone()
+    }
+
     // TODO different sizes
     let dist = Normal::new(0.0, sigma).unwrap();
     let preds: Vec<(NodeRequest, usize)> = instance.requests.iter().map(|(x,t)| {
@@ -32,14 +36,14 @@ pub fn gaussian_prediction(
         let mut distances: Vec<(Node, Cost)> = nodes.iter().map(|&n| (n, metric.distance(n, x.node()))).collect();
         distances.sort_by_key(|(_,d)| *d);
         
-        let mut pred_n: Option<NodeRequest> = None;
+        let mut pred_n = NodeRequest(distances.last().unwrap().0);
         for (n,d) in distances {
             if d.as_float() + 0.01 >= pred_dist {
-                pred_n = Some(NodeRequest(n));
+                pred_n = NodeRequest(n);
                 break
             }
         }
-        (pred_n.unwrap(), pred_t)
+        (pred_n, pred_t)
     }).collect();
     Instance { requests: preds }
 }

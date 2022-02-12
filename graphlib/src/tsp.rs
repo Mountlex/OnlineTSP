@@ -8,7 +8,8 @@ use itertools::Itertools;
 use rustc_hash::FxHashMap;
 
 use crate::{
-    christofides::{christofides, MatchingAlgorithm}, Adjacency, Cost, GraphSize, Metric, Node, Nodes, Weighted,
+    christofides::{christofides, MatchingAlgorithm},
+    Adjacency, Cost, GraphSize, Metric, Node, Nodes, Weighted,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -17,14 +18,14 @@ pub enum SolutionType {
     Approx,
 }
 
-pub fn tsp_tour<'a, G>(graph: &'a G, start_node: Node, sol_type: SolutionType) -> Vec<Node>
+pub fn tsp_tour<'a, G>(graph: &'a G, start_node: Node, sol_type: SolutionType) -> (Cost, Vec<Node>)
 where
     G: Nodes<'a> + Adjacency<'a> + Weighted + GraphSize + Metric,
 {
     match sol_type {
         SolutionType::Optimal => tsp_path_optimal(graph, start_node, start_node),
         SolutionType::Approx => {
-            christofides(graph, start_node, start_node, MatchingAlgorithm::Blossom).1
+            christofides(graph, start_node, start_node, MatchingAlgorithm::Blossom)
         }
     }
 }
@@ -34,39 +35,43 @@ pub fn tsp_path<'a, G>(
     start_node: Node,
     end_node: Node,
     sol_type: SolutionType,
-) -> Vec<Node>
+) -> (Cost, Vec<Node>)
 where
     G: Nodes<'a> + Adjacency<'a> + Weighted + GraphSize + Metric,
 {
     match sol_type {
         SolutionType::Optimal => tsp_path_optimal(graph, start_node, end_node),
         SolutionType::Approx => {
-            christofides(graph, start_node, end_node, MatchingAlgorithm::Blossom).1
+            christofides(graph, start_node, end_node, MatchingAlgorithm::Blossom)
         }
     }
 }
 
-pub fn tsp_path_optimal<'a, G>(graph: &'a G, start_node: Node, end_node: Node) -> Vec<Node>
+pub fn tsp_path_optimal<'a, G>(graph: &'a G, start_node: Node, end_node: Node) -> (Cost, Vec<Node>)
 where
     G: Nodes<'a> + Weighted + GraphSize,
 {
     let n = graph.n();
     if n == 1 {
         if start_node == end_node {
-            return vec![start_node, end_node];
+            return (Cost::new(0), vec![start_node, end_node]);
         } else {
             panic!("Cannot compute path between different vertices if n=1!")
         }
     }
     if n == 2 {
         if start_node != end_node {
-            return vec![start_node, end_node];
+            return (Cost::new(0), vec![start_node, end_node]);
         } else {
             let other = graph
                 .nodes()
                 .find(|&n| n != start_node && n != end_node)
                 .unwrap();
-            return vec![start_node, other, end_node];
+            return (
+                graph.edge_cost(start_node, other).unwrap()
+                    + graph.edge_cost(end_node, other).unwrap(),
+                vec![start_node, other, end_node],
+            );
         }
     }
 
@@ -93,11 +98,12 @@ where
         }
     }
 
-    let mut model = vars.minimise(objective).using(default_solver);
+    let mut model = vars.minimise(objective.clone()).using(default_solver);
     for constr in constraints {
         model.add_constraint(constr);
     }
     let solution = model.solve().unwrap();
+    let cost = solution.eval(&objective);
 
     let mut tour = Vec::with_capacity(n + 1);
     tour.push(start_node);
@@ -119,7 +125,7 @@ where
         }
     }
 
-    tour
+    (Cost::new(cost.round() as usize), tour)
 }
 
 fn add_tour_variables_and_constraints<'a, G>(
@@ -190,12 +196,13 @@ pub struct TimedTour {
 
 impl Display for TimedTour {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let nodes = self.nodes.iter().zip(&self.waiting_until).fold(String::new(), |acc, (&x,&t)| {
-            match t {
+        let nodes = self.nodes.iter().zip(&self.waiting_until).fold(
+            String::new(),
+            |acc, (&x, &t)| match t {
                 Some(r) => acc + &format!("({},{})", x, r) + ", ",
                 None => acc + &format!("({},-)", x) + ", ",
-            }
-        });
+            },
+        );
         write!(f, "[{}]", nodes)
     }
 }
@@ -480,7 +487,7 @@ mod test_tsp {
     fn test_tour_solution() {
         let graph = get_graph1();
 
-        let tour = tsp_tour(&graph, 1.into(), SolutionType::Optimal);
+        let tour = tsp_tour(&graph, 1.into(), SolutionType::Optimal).1;
 
         assert_eq!(tour, vec![1.into(), 3.into(), 2.into(), 4.into(), 1.into()])
     }
@@ -488,7 +495,7 @@ mod test_tsp {
     #[test]
     fn test_path_solution() {
         let graph = get_graph2();
-        let tour = tsp_path(&graph, 1.into(), 4.into(), SolutionType::Optimal);
+        let tour = tsp_path(&graph, 1.into(), 4.into(), SolutionType::Optimal).1;
         assert_eq!(tour, vec![1.into(), 3.into(), 2.into(), 4.into()])
     }
 

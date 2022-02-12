@@ -1,10 +1,9 @@
 use graphlib::{
+    mst,
     tsp::{self, SolutionType, TimedTour},
-    AdjListGraph, Cost, Metric, Node, Nodes,
-    SpMetricGraph, mst,
+    AdjListGraph, Cost, Metric, Node, Nodes, SpMetricGraph,
 };
 use rustc_hash::FxHashMap;
-
 
 use crate::instance::{Instance, NodeRequest, Request};
 
@@ -154,8 +153,9 @@ where
                         Cost::new(next_release - self.time),
                         &mut self.base_graph,
                     );
-                    assert!(!self.current_nodes.contains(&self.pos));
-                    self.current_nodes.push(self.pos);
+                    if !self.current_nodes.contains(&self.pos) {
+                        self.current_nodes.push(self.pos);
+                    }
 
                     self.time = next_release;
                     return served_nodes;
@@ -192,7 +192,7 @@ pub fn ignore(
             env.current_nodes.clone(),
             env.metric_graph.metric_clone(),
         );
-        let tour = tsp::tsp_tour(&tour_graph, env.origin, sol_type);
+        let (_, tour) = tsp::tsp_tour(&tour_graph, env.origin, sol_type);
         let start_time = env.time;
         if let Some(back) = back_until {
             let (abort, served) = env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
@@ -213,7 +213,7 @@ pub fn ignore(
         let wait_until = env.time.max(env.next_release.unwrap());
         if let Some(back) = back_until {
             if wait_until > back {
-                env.time = back;
+                env.time = back.max(env.time);
                 return back;
             }
         }
@@ -223,6 +223,73 @@ pub fn ignore(
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
         env.add_requests(new_requests);
         env.next_release = next_release;
+    }
+}
+
+pub fn smartstart(
+    env: &mut Environment<AdjListGraph, NodeRequest>,
+    back_until: Option<usize>,
+    sol_type: SolutionType,
+) -> usize {
+    loop {
+        assert_eq!(env.origin, env.pos);
+        let tour_graph = SpMetricGraph::from_metric_on_nodes(
+            env.current_nodes.clone(),
+            env.metric_graph.metric_clone(),
+        );
+        let (cost, tour) = tsp::tsp_tour(&tour_graph, env.origin, sol_type);
+
+        let start_time = env.time;
+        if cost.get_usize() <= env.time {
+            // work
+
+            if let Some(back) = back_until {
+                let (abort, served) = env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
+                env.remove_served_requests(&served);
+                if abort {
+                    return env.time;
+                }
+            } else {
+                env.follow_tour(TimedTour::from_tour(tour.clone()));
+                env.remove_served_requests(&tour);
+            }
+        } else {
+            // sleep
+
+            let sleep_until = cost.get_usize();
+
+            if let Some(back) = back_until {
+               if back <= sleep_until {
+                   return back.max(env.time)
+               }
+            } else {
+                env.time = sleep_until;
+            }
+        }
+
+        
+        if env.next_release.is_none() && env.current_nodes.len() == 1 && env.current_nodes.first() == Some(&env.origin) {
+            return env.time
+        }
+        
+        if env.next_release.is_some() {
+
+            // wait until next release
+            let wait_until = env.time.max(env.next_release.unwrap());
+            if let Some(back) = back_until {
+                if wait_until > back {
+                    env.time = back.max(env.time);
+                    return back;
+                }
+            }
+            env.time = wait_until;
+
+            // get released requests
+            let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
+            env.add_requests(new_requests);
+            env.next_release = next_release;
+        }
+
     }
 }
 
@@ -239,7 +306,7 @@ pub fn replan(
             env.current_nodes.clone(),
             env.metric_graph.metric_clone(),
         );
-        let tour = tsp::tsp_path(&tour_graph, env.pos, env.origin, sol_type);
+        let (_, tour) = tsp::tsp_path(&tour_graph, env.pos, env.origin, sol_type);
         log::info!("Replan: current tour = {:?}", tour);
 
         if let Some(back) = back_until {
@@ -299,7 +366,8 @@ pub fn learning_augmented(
     instances_nodes.append(&mut pred_nodes);
     instances_nodes.sort();
     instances_nodes.dedup();
-    let metric_graph = SpMetricGraph::from_metric_on_nodes(instances_nodes, env.metric_graph.metric_clone());
+    let metric_graph =
+        SpMetricGraph::from_metric_on_nodes(instances_nodes, env.metric_graph.metric_clone());
     env.metric_graph = metric_graph;
 
     let opt_pred = prediction
@@ -325,14 +393,18 @@ pub fn learning_augmented(
 
     if let Some(next_release) = env.next_release {
         if next_release < env.time {
-            let (new_requests, next_release) = env.instance.released_between(next_release, env.time);
+            let (new_requests, next_release) =
+                env.instance.released_between(next_release, env.time);
             env.add_requests(new_requests);
             env.next_release = next_release;
         }
     }
 
-
-    log::info!("Predict-Replan: Start phase (iii) at time {}; next release {:?}", env.time, env.next_release);
+    log::info!(
+        "Predict-Replan: Start phase (iii) at time {}; next release {:?}",
+        env.time,
+        env.next_release
+    );
 
     // Phase (iii)
     loop {
@@ -344,7 +416,10 @@ pub fn learning_augmented(
         );
 
         // update release date w.r.t. current time
-        let updated_release_dates: FxHashMap<Node, usize> = release_dates.iter().map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0)as usize ) ).collect();
+        let updated_release_dates: FxHashMap<Node, usize> = release_dates
+            .iter()
+            .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
+            .collect();
 
         let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
@@ -368,8 +443,14 @@ pub fn learning_augmented(
                         on_tour = true;
                     }
                     // is this right?
-                    if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() < next_release {
-                        log::info!("Predict-Replan: req {} on current tour, but release later {} > {}", req, next_release, tour_wait.unwrap());
+                    if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() < next_release
+                    {
+                        log::info!(
+                            "Predict-Replan: req {} on current tour, but release later {} > {}",
+                            req,
+                            next_release,
+                            tour_wait.unwrap()
+                        );
                         break 'req_search;
                     }
                 }
@@ -394,7 +475,6 @@ pub fn learning_augmented(
         env.add_requests(new_requests);
         env.next_release = next_release;
     }
-    
 }
 
 #[cfg(test)]

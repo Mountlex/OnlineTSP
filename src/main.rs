@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::{Args, Parser};
 use csv::Writer;
-use graphlib::{graphml::graphml_import, SpMetricGraph, sp};
-use oltsp::{ignore, instance_from_file, replan, learning_augmented};
+use graphlib::{graphml::graphml_import, SpMetricGraph, sp, Nodes, Node};
+use oltsp::{ignore, instance_from_file, replan, learning_augmented, gaussian_prediction, smartstart};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::Serialize;
 use std::path::PathBuf;
@@ -24,6 +24,12 @@ struct Exp1 {
     )]
     graph: PathBuf,
 
+    #[clap(long = "num-sigma", default_value = "10")]
+    num_sigmas: i32,
+
+    #[clap(long = "base-sigma", default_value = "2")]
+    base_sigma: f64,
+
     #[clap(short, long, default_value = "500")]
     scale: usize,
 
@@ -41,6 +47,7 @@ struct Exp1 {
 struct Exp1Result {
     name: String,
     param: f64,
+    sigma: f64,
     opt: u64,
     alg: u64,
 }
@@ -64,8 +71,8 @@ fn main() -> Result<()> {
                 .collect();
 
             let results: Vec<Exp1Result> = paths
-                .into_par_iter()
-                .map(|file| {
+                .into_iter()
+                .flat_map(|file| {
                     let start_node = 1.into();
                     let instance = instance_from_file(&file.path()).unwrap();
                     let mut nodes = instance.distinct_nodes();
@@ -78,56 +85,81 @@ fn main() -> Result<()> {
                     let (opt, tour) = instance.optimal_solution(start_node, &sp, graphlib::tsp::SolutionType::Approx);
                     log::info!("    ...success. Optimal tour = {}", tour);
 
-                    let mut results: Vec<Exp1Result> = vec![];
+                    let base_nodes: Vec<Node> = graph.nodes().collect();
+
+                    let t_ignore = ignore(
+                        &graph,
+                        &metric_graph,
+                        instance.clone(),
+                        start_node,
+                        graphlib::tsp::SolutionType::Approx,
+                    ) as u64;
+
+                    let t_replan = replan(
+                        &graph,
+                        &metric_graph,
+                        instance.clone(),
+                        start_node,
+                        graphlib::tsp::SolutionType::Approx,
+                    ) as u64;
                     
-                    [0.0, 0.5, 1.0].iter().for_each(|alpha| {
-                        results.push(Exp1Result {
-                            name: "pred-replan".into(),
-                            param: *alpha,
-                            opt: opt.get_usize() as u64,
-                            alg: learning_augmented(
-                                &graph,
-                                &metric_graph,
-                                instance.clone(),
-                                start_node,
-                                *alpha,
-                                instance.clone(),
-                                graphlib::tsp::SolutionType::Approx,
-                            ) as u64,
+                    let t_smart = smartstart(
+                        &graph,
+                        &metric_graph,
+                        instance.clone(),
+                        start_node,
+                        graphlib::tsp::SolutionType::Approx,
+                    ) as u64;
+
+                    let results: Vec<Exp1Result> = (0..exp.num_sigmas).into_par_iter().flat_map(|sigma_num| {
+                        let sigma = exp.base_sigma.powi(sigma_num) - 1.0;
+                        let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, None);
+                        let mut results: Vec<Exp1Result> = vec![];
+
+                        [0.0, 0.5, 1.0].iter().for_each(|alpha| {
+                            results.push(Exp1Result {
+                                name: "pred".into(),
+                                param: *alpha,
+                                opt: opt.get_usize() as u64,
+                                alg: learning_augmented(
+                                    &graph,
+                                    &metric_graph,
+                                    instance.clone(),
+                                    start_node,
+                                    *alpha,
+                                    pred.clone(),
+                                    graphlib::tsp::SolutionType::Approx,
+                                ) as u64,
+                                sigma
+                            });
                         });
-                    });
 
-                    results.push(Exp1Result {
-                        name: "ignore".into(),
-                        param: 0.0,
-                        opt: opt.get_usize() as u64,
-                        alg: ignore(
-                            &graph,
-                            &metric_graph,
-                            instance.clone(),
-                            start_node,
-                            graphlib::tsp::SolutionType::Approx,
-                        ) as u64,
-                    });
-                    results.push(Exp1Result {
-                        name: "replan".into(),
-                        param: 0.0,
-                        opt: opt.get_usize() as u64,
-                        alg: replan(
-                            &graph,
-                            &metric_graph,
-                            instance.clone(),
-                            start_node,
-                            graphlib::tsp::SolutionType::Approx,
-                        ) as u64,
-                    });
+                        results.push(Exp1Result {
+                            name: "ignore".into(),
+                            param: 0.0,
+                            opt: opt.get_usize() as u64,
+                            alg: t_ignore,
+                            sigma,
+                        });
+                        results.push(Exp1Result {
+                            name: "replan".into(),
+                            param: 0.0,
+                            opt: opt.get_usize() as u64,
+                            alg: t_replan,
+                            sigma
+                        });
+                        results.push(Exp1Result {
+                            name: "smart".into(),
+                            param: 0.0,
+                            opt: opt.get_usize() as u64,
+                            alg: t_smart,
+                            sigma
+                        });
+                        results
+                    }).collect(); 
 
-                    
-                    
-
-                    results
+                results
                 })
-                .flatten()
                 .collect();
             export(&exp.output, results)?
         }
