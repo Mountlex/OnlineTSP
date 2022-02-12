@@ -2,9 +2,10 @@ use std::{error::Error, path::PathBuf};
 
 use graphlib::{
     mst,
-    tsp::{tsp_rd_tour, SolutionType, TimedTour},
+    tsp::{tsp_rd_tour, SolutionType, TimedTour, self},
     Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, SpMetricGraph, Weighted,
 };
+use std::fmt::Debug;
 use rustc_hash::FxHashMap;
 
 pub trait Request {
@@ -104,56 +105,45 @@ where
         return (released, None);
     }
 
-    pub fn optimal_solution(
+    /// metric graph of instance nodes
+    pub fn optimal_solution<M>(
         &self,
         start_node: Node,
-        metric_graph: &SpMetricGraph,
+        metric: M,
         sol_type: SolutionType,
-    ) -> (Cost, TimedTour) {
-        let req_nodes = (0..(self.requests.len() + 1))
-            .map(|id| Node::new(id))
-            .collect::<Vec<Node>>();
-        let mut req_to_graph_nodes = vec![start_node];
+    ) -> (Cost, TimedTour) where M: Metric + Clone + Debug {
 
-        let (nodes_raw, mut release_dates_raw): (Vec<R>, Vec<usize>) =
-            self.requests.iter().cloned().unzip();
-        let mut release_dates = vec![0];
-        release_dates.append(&mut release_dates_raw);
 
-        let mut nodes = nodes_raw.into_iter().map(|r| r.node()).collect();
-        req_to_graph_nodes.append(&mut nodes);
+        // update release date w.r.t. current time
+        let mut distinct_release_dates = FxHashMap::<Node, usize>::default();
+        for (n, r) in &self.requests {
+            let entry = distinct_release_dates.entry(n.node()).or_insert(0);
+            *entry = (*entry).max(*r);
+        }
+        let mut nodes = self.nodes();
+        nodes.push(start_node);
+        nodes.sort();
+        nodes.dedup();
 
-        let mut graph_nodes = req_to_graph_nodes.clone();
-        graph_nodes.sort_by_key(|n| n.id());
-        graph_nodes.dedup();
+        let tour_graph = MetricGraph::from_metric_on_nodes(
+            nodes,
+            metric,
+        );
 
-        let max_rd: usize = *release_dates.iter().max().unwrap();
-        let max_t = mst::prims_cost(metric_graph).get_usize() * 2 + max_rd;
-
-        let instance_graph = InstanceGraph {
-            req_nodes,
-            req_to_graph_nodes,
-            metric_graph,
-        };
-
-        let release_map: FxHashMap<Node, usize> = release_dates
-            .into_iter()
-            .enumerate()
-            .map(|(n, r)| (Node::new(n), r))
-            .collect();
-        let (obj, mut tour) =
-            tsp_rd_tour(&instance_graph, &release_map, Node::new(0), max_t, sol_type);
-        *tour.mut_nodes() = tour
-            .nodes()
-            .into_iter()
-            .map(|n| instance_graph.req_to_graph_nodes[n.id()])
-            .collect::<Vec<Node>>();
-        (obj, tour)
-    }
-
-    pub fn lower_bound(&self, start_node: Node, metric_graph: &SpMetricGraph) -> Cost {
-        let (approx, _) = self.optimal_solution(start_node, metric_graph, SolutionType::Approx);
-        approx / 2.5
+        let max_rd: usize = distinct_release_dates.values().copied().max().unwrap();
+        let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
+        tsp::tsp_rd_tour(
+            &tour_graph,
+            &distinct_release_dates,
+            start_node,
+            max_t,
+            sol_type,
+        )
+        }
+        
+        pub fn lower_bound<M>(&self, start_node: Node, metric: M) -> Cost where M: Metric + Clone + Debug {
+            let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
+        approx
     }
 }
 
@@ -267,7 +257,7 @@ pub fn instance_from_file(filename: &PathBuf) -> Result<Instance<NodeRequest>, B
 
 #[cfg(test)]
 mod test_instance {
-    use graphlib::AdjListGraph;
+    use graphlib::{AdjListGraph, sp::ShortestPathsCache};
 
     use super::*;
 
@@ -278,11 +268,11 @@ mod test_instance {
         graph.add_edge(1.into(), 2.into(), 1.into());
         graph.add_edge(2.into(), 3.into(), 1.into());
         graph.add_edge(3.into(), 4.into(), 1.into());
-        let metric_graph = SpMetricGraph::from_graph(&graph);
+        let sp = ShortestPathsCache::compute_all_graph_pairs(&graph);
 
         let instance: Instance<NodeRequest> = vec![(4, 1), (2, 7)].into();
 
-        let (obj, tour) = instance.optimal_solution(1.into(), &metric_graph, SolutionType::Optimal);
+        let (obj, tour) = instance.optimal_solution(1.into(), sp, SolutionType::Optimal);
 
         assert_eq!(tour.nodes(), vec![1.into(), 4.into(), 2.into(), 1.into()]);
         assert_eq!(

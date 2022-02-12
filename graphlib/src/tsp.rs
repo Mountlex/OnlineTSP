@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use good_lp::{
     default_solver, variable, variables, Constraint, Expression, ProblemVariables, Solution,
     SolverModel, Variable,
@@ -186,6 +188,18 @@ pub struct TimedTour {
     waiting_until: Vec<Option<usize>>,
 }
 
+impl Display for TimedTour {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let nodes = self.nodes.iter().zip(&self.waiting_until).fold(String::new(), |acc, (&x,&t)| {
+            match t {
+                Some(r) => acc + &format!("({},{})", x, r) + ", ",
+                None => acc + &format!("({},-)", x) + ", ",
+            }
+        });
+        write!(f, "[{}]", nodes)
+    }
+}
+
 impl TimedTour {
     pub fn from_tour(tour: Vec<Node>) -> Self {
         Self {
@@ -214,6 +228,7 @@ impl TimedTour {
         if let Some(r) = release_dates.get(tour.last().unwrap()) {
             time = time.max(*r);
         }
+        waiting_until.push(Some(time));
         (
             Cost::new(time),
             Self {

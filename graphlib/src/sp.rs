@@ -230,6 +230,10 @@ impl ShortestPathsCache {
         }
     }
 
+    pub fn contains_node(&self, node: Node) -> bool {
+        self.index.get(&node).is_some()
+    }
+
     pub fn get(&self, n1: Node, n2: Node) -> Cost {
         let i1 = self.index[&n1];
         let i2 = self.index[&n2];

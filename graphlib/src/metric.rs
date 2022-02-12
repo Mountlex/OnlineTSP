@@ -75,6 +75,17 @@ pub struct MetricGraph<M> {
     metric: M,
 }
 
+impl <M> MetricGraph<M> where M: Metric + Clone + Debug {
+    pub fn from_metric_on_nodes(nodes: Vec<Node>, metric: M) -> Self {
+        let node_index = NodeIndex::init(&nodes);
+        Self {
+            nodes,
+            node_index,
+            metric,
+        }
+    }
+}
+
 pub type SpMetricGraph = MetricGraph<ShortestPathsCache>;
 
 impl SpMetricGraph {
@@ -91,14 +102,7 @@ impl SpMetricGraph {
         }
     }
 
-    pub fn from_metric_on_nodes(nodes: Vec<Node>, metric: ShortestPathsCache) -> Self {
-        let node_index = NodeIndex::init(&nodes);
-        Self {
-            nodes,
-            node_index,
-            metric,
-        }
-    }
+    
 
     pub fn from_graph<'a, G>(graph: &'a G) -> Self
     where
@@ -136,6 +140,7 @@ impl SpMetricGraph {
             if walked + edge_cost == at {
                 // split is at base_graph node edge[1]
                 at_node = Some(edge[1]);
+                assert!(self.metric.contains_node(edge[1]));
                 break;
             } else if walked + edge_cost > at {
                 let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
@@ -345,8 +350,10 @@ mod test_metric_graph {
         graph.add_edge(4.into(), 5.into(), 1.into());
         graph.add_edge(5.into(), 6.into(), 6.into());
 
+        let sp = ShortestPathsCache::compute_all_graph_pairs(&graph);
+
         let nodes: Vec<Node> = vec![1.into(), 3.into(), 4.into(), 6.into()];
-        let mut metric_graph = SpMetricGraph::from_graph_on_nodes(nodes, &graph);
+        let mut metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp);
 
         metric_graph.split_virtual_edge(4.into(), 3.into(), Cost::new(1), &mut graph);
         assert!(metric_graph.contains_node(5.into()));
