@@ -1,6 +1,6 @@
 use std::{path::PathBuf, io::{BufReader, BufWriter}, fs::File, ops::{Div, Mul}};
 use anyhow::Result;
-use ndarray::{Array2, ArrayView, NdProducer, Axis};
+use ndarray::{Array2, ArrayView, NdProducer, Axis, Array1};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Serialize, Deserialize};
 
@@ -24,7 +24,8 @@ enum PathCost {
 pub struct ShortestPathsCache {
     matrix: Array2<PathCost>,
     index: NodeIndex,
-   
+    node_in_buffer: Option<Node>,
+    buffer: Option<Array1<PathCost>>
 }
 
 impl ShortestPathsCache {
@@ -50,6 +51,8 @@ impl ShortestPathsCache {
         ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&nodes),
+            node_in_buffer: None,
+            buffer: None,
         }
     }
 
@@ -77,7 +80,7 @@ impl ShortestPathsCache {
         }
     }
 
-    pub fn split_edge_at<'a, G>(&mut self, new_node: Node, source: Node, sink: Node, at: Cost, edge_cost: Cost, graph: &'a G)
+    pub fn split_edge_to_buffer<'a, G>(&mut self, new_node: Node, source: Node, sink: Node, at: Cost, edge_cost: Cost, graph: &'a G)
     where
         G: Graph<'a>,
     {
@@ -126,6 +129,8 @@ impl ShortestPathsCache {
         let mut sp = ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&sorted_nodes),
+            buffer: None,
+            node_in_buffer: None,
         };
 
         for (i, &n1) in sorted_nodes.iter().enumerate() {
@@ -172,7 +177,8 @@ impl ShortestPathsCache {
         let mut sp = ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&sorted_nodes),
-         
+            node_in_buffer : None,
+            buffer: None
         };
 
         let indexed_nodes: Vec<(usize, Node)> = sorted_nodes.iter().copied().enumerate().collect();
@@ -243,7 +249,7 @@ impl ShortestPathsCache {
         self.get_by_index(i1, i2)
     }
 
-    pub fn get_by_index(&self, i1: usize, i2: usize) -> Cost {
+    fn get_by_index(&self, i1: usize, i2: usize) -> Cost {
         let x = i1.min(i2);
         let y = i1.max(i2);
         if let PathCost::Path(cost) = self.matrix[[x, y]] {
@@ -260,7 +266,7 @@ impl ShortestPathsCache {
         self.set_by_index(i1, i2, cost);
     }
 
-    pub fn set_by_index(&mut self, i1: usize, i2: usize, cost: Cost) {
+    fn set_by_index(&mut self, i1: usize, i2: usize, cost: Cost) {
         let x = i1.min(i2);
         let y = i1.max(i2);
 

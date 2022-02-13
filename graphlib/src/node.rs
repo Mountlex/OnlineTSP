@@ -5,8 +5,10 @@ use std::{
     iter::FromIterator,
 };
 
+use serde::{Serialize, Deserialize};
+
 /// A node in a graph. It is identified by an unique unsigned integer.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node(usize);
 
 impl Node {

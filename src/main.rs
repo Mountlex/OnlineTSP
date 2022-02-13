@@ -74,6 +74,7 @@ fn main() -> Result<()> {
                 .into_iter()
                 .flat_map(|file| {
                     let start_node = 1.into();
+                    log::info!("Loading instance from {:?}", file.path());
                     let instance = instance_from_file(&file.path()).unwrap();
                     let mut nodes = instance.distinct_nodes();
                     if !nodes.contains(&start_node) {

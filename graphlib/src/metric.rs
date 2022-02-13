@@ -148,7 +148,7 @@ impl SpMetricGraph {
                 break;
             } else if walked + edge_cost > at {
                 let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
-                self.metric.split_edge_at(new_node, edge[0], edge[1], at - walked, edge_cost, base_graph);
+                self.metric.split_edge_to_buffer(new_node, edge[0], edge[1], at - walked, edge_cost, base_graph);
                 at_node = Some(new_node);
                 break;
             }

@@ -471,6 +471,11 @@ pub fn learning_augmented(
             return env.time;
         }
 
+        // wait in origin until next release
+        if env.current_nodes.len() == 1 {
+            env.time = env.time.max(env.next_release.unwrap());
+        }
+
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
         env.add_requests(new_requests);
         env.next_release = next_release;
