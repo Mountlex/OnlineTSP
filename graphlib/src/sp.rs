@@ -56,29 +56,7 @@ impl ShortestPathsCache {
         }
     }
 
-    pub fn add_node<'a, G>(&mut self, new_node: Node, graph: &'a G)
-    where
-        G: Graph<'a>,
-    {
-        let goals = graph
-            .nodes()
-            .filter(|node| self.index.get(node).is_some())
-            .collect::<Vec<Node>>();
-        let idx = self.index.add_node(new_node);
-        self.matrix
-            .push_row(ArrayView::from(&vec![PathCost::Unreachable; idx]))
-            .unwrap();
-        self.matrix
-            .push_column(ArrayView::from(&vec![PathCost::Unreachable; idx + 1]))
-            .unwrap();
-        assert!(self.matrix.is_square());
-
-        self.set(new_node, new_node, Cost::new(0));
-        let paths = shortest_paths_to(graph, new_node, &goals);
-        for node in goals {
-            self.set(new_node, node, paths.cost_to(node).unwrap());
-        }
-    }
+    
 
     pub fn split_edge_to_buffer<'a, G>(&mut self, new_node: Node, source: Node, sink: Node, at: Cost, edge_cost: Cost, graph: &'a G)
     where
@@ -88,21 +66,18 @@ impl ShortestPathsCache {
             .nodes()
             .filter(|node| self.index.get(node).is_some())
             .collect::<Vec<Node>>();
-        let idx = self.index.add_node(new_node);
-        self.matrix
-            .push_row(ArrayView::from(&vec![PathCost::Unreachable; idx]))
-            .unwrap();
-        self.matrix
-            .push_column(ArrayView::from(&vec![PathCost::Unreachable; idx + 1]))
-            .unwrap();
-        assert!(self.matrix.is_square());
-
-        self.set(new_node, new_node, Cost::new(0));       
+        
+            
+            let n = self.matrix.ncols();
+            let mut temp_buff =Array1::from_elem(n, PathCost::Unreachable);
         for node in goals {
             let p1 = self.get(node, source) + at;
             let p2 = self.get(node, sink) + edge_cost - at;
-            self.set(new_node, node, Cost::new(p1.get_usize().min(p2.get_usize())));
+            let i1 = self.index[&node];
+            temp_buff[i1] = PathCost::Path(Cost::new(p1.get_usize().min(p2.get_usize())));
         }
+        self.node_in_buffer = Some(new_node);
+        self.buffer = Some(temp_buff)
     }
 
     pub fn compute_all_graph_pairs<'a, G>(graph: &'a G) -> Self
@@ -243,6 +218,23 @@ impl ShortestPathsCache {
     }
 
     pub fn get(&self, n1: Node, n2: Node) -> Cost {
+        if self.node_in_buffer == Some(n1) {
+            let i2 = self.index[&n2];
+            if let PathCost::Path(cost) = self.buffer.as_ref().unwrap()[i2] {
+                return cost;
+            } else {
+                panic!("should not happen.")
+            }
+        }
+        if self.node_in_buffer == Some(n2) {
+            let i1 = self.index[&n1];
+            if let PathCost::Path(cost) = self.buffer.as_ref().unwrap()[i1] {
+                return cost;
+            } else {
+                panic!("should not happen.")
+            }
+        }
+
         let i1 = self.index[&n1];
         let i2 = self.index[&n2];
 

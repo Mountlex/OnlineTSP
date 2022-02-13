@@ -41,13 +41,26 @@ impl AdjListGraph {
         self.add_edge_raw(Edge::new(source, sink, cost));
     }
 
-    pub fn split_edge_at(&mut self, source: Node, sink: Node, at: Cost) -> Node {
+    pub fn remove_virtual_node(
+        &mut self,
+        virtual_node: Node,
+    ) {
+        let neighbors: Vec<Node> = self.neighbors(virtual_node).collect();
+        println!("{:?}", neighbors);
+        assert_eq!(neighbors.len(), 2);
+        let edge_cost = self.edge_cost(neighbors[0], virtual_node).unwrap() + self.edge_cost(neighbors[1], virtual_node).unwrap();
+        for &neighbor in &neighbors {
+            self.remove_edge(virtual_node, neighbor);
+        }
+        self.add_edge(neighbors[0], neighbors[1], edge_cost);
+        self.adj_list.remove(&virtual_node);
+    }
+
+    pub fn split_edge_at(&mut self, new_node: Node, source: Node, sink: Node, at: Cost) -> Node {
         let cost = self.edge_cost(source, sink).unwrap();
         assert!(Cost::new(0) < at);
         assert!(cost > at);
 
-        let new_node_idx = self.nodes().map(|n| n.id()).max().unwrap() + 1;
-        let new_node = Node::new(new_node_idx);
         self.add_node(new_node);
         self.remove_edge(source, sink);
         self.add_edge(source, new_node, at);
@@ -312,8 +325,7 @@ mod test_adj_list_graph {
         assert_eq!(graph.edges().count(), 7);
         assert_eq!(graph.nodes().count(), 6);
 
-        let new_node = graph.split_edge_at(1.into(), 2.into(), 2.into());
-        assert_eq!(new_node.id(), 7);
+        graph.split_edge_at(Node::new(7),1.into(), 2.into(), 2.into());
 
         assert_eq!(graph.edges().count(), 8);
         assert_eq!(graph.nodes().count(), 7);

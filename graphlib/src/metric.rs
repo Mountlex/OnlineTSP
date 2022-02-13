@@ -125,6 +125,7 @@ impl SpMetricGraph {
 
     pub fn split_virtual_edge(
         &mut self,
+        new_node: Node,
         virtual_source: Node,
         virtual_sink: Node,
         at: Cost,
@@ -147,7 +148,7 @@ impl SpMetricGraph {
                 assert!(self.metric.contains_node(edge[1]));
                 break;
             } else if walked + edge_cost > at {
-                let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
+                base_graph.split_edge_at(new_node, edge[0], edge[1], at - walked);
                 self.metric.split_edge_to_buffer(new_node, edge[0], edge[1], at - walked, edge_cost, base_graph);
                 at_node = Some(new_node);
                 break;
@@ -155,13 +156,24 @@ impl SpMetricGraph {
             walked += edge_cost;
         }
 
-        let new_node = at_node.unwrap();
-        if !self.nodes.contains(&new_node) {
-            self.node_index.add_node(new_node);
+        let nnode = at_node.unwrap();
+        if !self.nodes.contains(&nnode) {
+            self.nodes.push(nnode);
+            self.node_index.add_node(nnode);
             
         }
 
-        return new_node;
+        return nnode;
+    }
+
+    pub fn remove_virtual_node(
+        &mut self,
+        virtual_node: Node,
+        base_graph: &mut AdjListGraph,
+    ) {
+        self.nodes.retain(|n| *n != virtual_node);
+        self.node_index.remove(virtual_node);
+        base_graph.remove_virtual_node(virtual_node);
     }
 }
 
@@ -340,38 +352,5 @@ mod test_metric_graph {
         assert_eq!(Cost::new(6), metric_graph.distance(4.into(), 6.into()));
     }
 
-    #[test]
-    ///   1 --5-- 2 --1-- 3
-    ///  |3|     |1|     |3|
-    ///   4 --1-- 5 --6-- 6
-    fn test_1() {
-        let mut graph = AdjListGraph::new();
-        graph.add_edge(1.into(), 2.into(), 5.into());
-        graph.add_edge(1.into(), 4.into(), 3.into());
-        graph.add_edge(2.into(), 5.into(), 1.into());
-        graph.add_edge(2.into(), 3.into(), 1.into());
-        graph.add_edge(3.into(), 6.into(), 3.into());
-        graph.add_edge(4.into(), 5.into(), 1.into());
-        graph.add_edge(5.into(), 6.into(), 6.into());
 
-        let sp = ShortestPathsCache::compute_all_graph_pairs(&graph);
-
-        let nodes: Vec<Node> = vec![1.into(), 3.into(), 4.into(), 6.into()];
-        let mut metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp);
-
-        metric_graph.split_virtual_edge(4.into(), 3.into(), Cost::new(1), &mut graph);
-        assert!(metric_graph.contains_node(5.into()));
-        assert_eq!(Cost::new(4), metric_graph.distance(5.into(), 1.into()));
-        assert_eq!(Cost::new(2), metric_graph.distance(5.into(), 3.into()));
-        assert_eq!(Cost::new(1), metric_graph.distance(5.into(), 4.into()));
-        assert_eq!(Cost::new(5), metric_graph.distance(5.into(), 6.into()));
-
-        metric_graph.split_virtual_edge(1.into(), 4.into(), Cost::new(1), &mut graph);
-        assert!(metric_graph.contains_node(7.into()));
-        assert_eq!(Cost::new(1), metric_graph.distance(7.into(), 1.into()));
-        assert_eq!(Cost::new(5), metric_graph.distance(7.into(), 3.into()));
-        assert_eq!(Cost::new(2), metric_graph.distance(7.into(), 4.into()));
-        assert_eq!(Cost::new(3), metric_graph.distance(7.into(), 5.into()));
-        assert_eq!(Cost::new(8), metric_graph.distance(7.into(), 6.into()));
-    }
 }
