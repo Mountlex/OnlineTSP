@@ -46,7 +46,6 @@ impl AdjListGraph {
         virtual_node: Node,
     ) {
         let neighbors: Vec<Node> = self.neighbors(virtual_node).collect();
-        println!("{:?}", neighbors);
         assert_eq!(neighbors.len(), 2);
         let edge_cost = self.edge_cost(neighbors[0], virtual_node).unwrap() + self.edge_cost(neighbors[1], virtual_node).unwrap();
         for &neighbor in &neighbors {

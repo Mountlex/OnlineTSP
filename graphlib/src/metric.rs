@@ -55,6 +55,7 @@ where
             nodes,
             node_index,
             metric: &sp,
+            buffer_node: None,
         }
     }
 }
@@ -73,15 +74,20 @@ pub struct MetricGraph<M> {
     nodes: Vec<Node>,
     node_index: NodeIndex,
     metric: M,
+    buffer_node: Option<Node>,
 }
 
-impl <M> MetricGraph<M> where M: Metric + Clone + Debug {
+impl<M> MetricGraph<M>
+where
+    M: Metric + Clone + Debug,
+{
     pub fn from_metric_on_nodes(nodes: Vec<Node>, metric: M) -> Self {
         let node_index = NodeIndex::init(&nodes);
         Self {
             nodes,
             node_index,
             metric,
+            buffer_node: None,
         }
     }
 }
@@ -99,10 +105,9 @@ impl SpMetricGraph {
             nodes,
             node_index,
             metric: sp,
+            buffer_node: None,
         }
     }
-
-    
 
     pub fn from_graph<'a, G>(graph: &'a G) -> Self
     where
@@ -125,7 +130,6 @@ impl SpMetricGraph {
 
     pub fn split_virtual_edge(
         &mut self,
-        new_node: Node,
         virtual_source: Node,
         virtual_sink: Node,
         at: Cost,
@@ -148,32 +152,92 @@ impl SpMetricGraph {
                 assert!(self.metric.contains_node(edge[1]));
                 break;
             } else if walked + edge_cost > at {
-                base_graph.split_edge_at(new_node, edge[0], edge[1], at - walked);
-                self.metric.split_edge_to_buffer(new_node, edge[0], edge[1], at - walked, edge_cost, base_graph);
-                at_node = Some(new_node);
+                if self.buffer_node == Some(edge[0]) {
+                    let neighbors: Vec<Node> = base_graph.neighbors(edge[0]).collect();
+                    assert_eq!(2, neighbors.len());
+                    assert!(neighbors.contains(&edge[1]));
+                    let other = if neighbors[0] == edge[1] {
+                        neighbors[1]
+                    } else {
+                        neighbors[0]
+                    };
+                    let other_cost = base_graph.edge_cost(other, edge[0]).unwrap();
+                    let edge_cost = base_graph.edge_cost(edge[0], edge[1]).unwrap();
+                    base_graph.remove_edge(other, edge[0]);
+                    base_graph.remove_edge(edge[0], edge[1]);
+
+                    base_graph.add_edge(other, edge[0], other_cost + at - walked);
+                    base_graph.add_edge(edge[0], edge[1], edge_cost - (at - walked));
+
+                    self.metric.split_edge_to_buffer(
+                        edge[0],
+                        other,
+                        edge[1],
+                        other_cost + at - walked,
+                        other_cost + edge_cost,
+                        base_graph,
+                    );
+
+                    at_node = self.buffer_node
+                } else if self.buffer_node == Some(edge[1]) {
+                    let neighbors: Vec<Node> = base_graph.neighbors(edge[1]).collect();
+                    assert_eq!(2, neighbors.len());
+                    assert!(neighbors.contains(&edge[0]));
+                    let other = if neighbors[0] == edge[0] {
+                        neighbors[1]
+                    } else {
+                        neighbors[0]
+                    };
+                    let other_cost = base_graph.edge_cost(other, edge[1]).unwrap();
+                    let edge_cost = base_graph.edge_cost(edge[1], edge[0]).unwrap();
+                    base_graph.remove_edge(other, edge[1]);
+                    base_graph.remove_edge(edge[1], edge[0]);
+
+                    base_graph.add_edge(other, edge[1], other_cost + at - walked);
+                    base_graph.add_edge(edge[1], edge[0], edge_cost - (at - walked));
+
+                    self.metric.split_edge_to_buffer(
+                        edge[1],
+                        other,
+                        edge[0],
+                        other_cost + at - walked,
+                        other_cost + edge_cost,
+                        base_graph,
+                    );
+
+                    at_node = self.buffer_node
+                } else {
+                    assert!(self.buffer_node != Some(edge[0]));
+                    assert!(self.buffer_node != Some(edge[1]));
+                    if let Some(buffer_node) = self.buffer_node {
+                        base_graph.remove_virtual_node(buffer_node);
+                        self.nodes.retain(|n| *n != buffer_node);
+                        self.node_index.remove(buffer_node);
+                    }
+
+                    let new_node = Node::new(base_graph.nodes().map(|n| n.id()).max().unwrap() + 1);
+
+                    base_graph.split_edge_at(new_node, edge[0], edge[1], at - walked);
+                    self.metric.split_edge_to_buffer(
+                        new_node,
+                        edge[0],
+                        edge[1],
+                        at - walked,
+                        edge_cost,
+                        base_graph,
+                    );
+                    self.buffer_node = Some(new_node);
+
+                    self.nodes.push(new_node);
+                    self.node_index.add_node(new_node);
+                    at_node = Some(new_node);
+                }
                 break;
             }
             walked += edge_cost;
         }
 
-        let nnode = at_node.unwrap();
-        if !self.nodes.contains(&nnode) {
-            self.nodes.push(nnode);
-            self.node_index.add_node(nnode);
-            
-        }
-
-        return nnode;
-    }
-
-    pub fn remove_virtual_node(
-        &mut self,
-        virtual_node: Node,
-        base_graph: &mut AdjListGraph,
-    ) {
-        self.nodes.retain(|n| *n != virtual_node);
-        self.node_index.remove(virtual_node);
-        base_graph.remove_virtual_node(virtual_node);
+        return at_node.unwrap();
     }
 }
 
@@ -351,6 +415,4 @@ mod test_metric_graph {
 
         assert_eq!(Cost::new(6), metric_graph.distance(4.into(), 6.into()));
     }
-
-
 }

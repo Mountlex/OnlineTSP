@@ -17,8 +17,6 @@ pub struct Environment<G, R> {
     instance: Instance<R>,
     known_requests: Vec<Node>,
     next_release: Option<usize>,
-    buffer_node: Option<Node>,
-    new_node_idx: usize,
 }
 
 impl<R> Environment<AdjListGraph, R>
@@ -46,8 +44,6 @@ where
             instance,
             known_requests,
             next_release,
-            buffer_node: None,
-            new_node_idx: base_graph.nodes().map(|n| n.id()).max().unwrap() + 1
         }
     }
 
@@ -154,17 +150,12 @@ where
                     
                     // TODO MOVE BUFFER LOGIC INTO VIRTUAL NODE
                     self.pos = self.metric_graph.split_virtual_edge(
-                        Node::new(self.new_node_idx),
                         edge[0],
                         edge[1],
                         Cost::new(next_release - self.time),
                         &mut self.base_graph,
                     );
-                    self.new_node_idx += 1;
-                    if let Some(virtual_node) = self.buffer_node {
-                        self.metric_graph.remove_virtual_node(virtual_node, &mut self.base_graph);
-                    }
-                    self.buffer_node = Some(self.pos);
+                    
                     if !self.current_nodes.contains(&self.pos) {
                         self.current_nodes.push(self.pos);
                     }

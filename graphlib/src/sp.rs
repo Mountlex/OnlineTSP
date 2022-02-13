@@ -68,13 +68,13 @@ impl ShortestPathsCache {
             .collect::<Vec<Node>>();
         
             
-            let n = self.matrix.ncols();
-            let mut temp_buff =Array1::from_elem(n, PathCost::Unreachable);
+        let n = self.matrix.ncols();
+        let mut temp_buff = Array1::from_elem(n, PathCost::Unreachable);
         for node in goals {
             let p1 = self.get(node, source) + at;
             let p2 = self.get(node, sink) + edge_cost - at;
-            let i1 = self.index[&node];
-            temp_buff[i1] = PathCost::Path(Cost::new(p1.get_usize().min(p2.get_usize())));
+            let idx = self.index[&node];
+            temp_buff[idx] = PathCost::Path(Cost::new(p1.get_usize().min(p2.get_usize())));
         }
         self.node_in_buffer = Some(new_node);
         self.buffer = Some(temp_buff)
