@@ -1,9 +1,10 @@
 use anyhow::Result;
 use clap::{Args, Parser};
 use csv::Writer;
-use graphlib::{graphml::graphml_import, SpMetricGraph, sp, Nodes, Node};
-use oltsp::{ignore, instance_from_file, replan, learning_augmented, gaussian_prediction, smartstart};
+use graphlib::{graphml::graphml_import, SpMetricGraph, sp, Nodes, Node, tsp, Metric};
+use oltsp::{ignore, instance_from_file, replan, learning_augmented, gaussian_prediction, smartstart, NodeRequest, Instance};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rustc_hash::FxHashMap;
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -30,7 +31,7 @@ struct Exp1 {
     #[clap(long = "base-sigma", default_value = "2")]
     base_sigma: f64,
 
-    #[clap(short, long, default_value = "500")]
+    #[clap(short, long, default_value = "1")]
     scale: usize,
 
     #[clap(
@@ -76,11 +77,22 @@ fn main() -> Result<()> {
                     let start_node = 1.into();
                     log::info!("Loading instance from {:?}", file.path());
                     let instance = instance_from_file(&file.path()).unwrap();
+
                     let mut nodes = instance.distinct_nodes();
                     if !nodes.contains(&start_node) {
                         nodes.push(start_node)
                     }
                     let metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp.clone());
+                    let (_,tour) = tsp::tsp_tour(&metric_graph, start_node, graphlib::tsp::SolutionType::Approx);
+                    let mut reqs: Vec<(NodeRequest, usize)> = vec![];
+                    let mut t = 0;
+                    for edge in tour.windows(2) {
+                        t += metric_graph.distance(edge[0], edge[1]).get_usize();
+                        reqs.push((NodeRequest(edge[1]), t));
+                    }
+                    let instance = Instance {
+                        requests: reqs
+                    };
 
                     log::info!("Computing optimal solution for {:?}...", file.file_name());
                     let (opt, tour) = instance.optimal_solution(start_node, &sp, graphlib::tsp::SolutionType::Approx);

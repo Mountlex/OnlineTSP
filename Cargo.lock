@@ -16,6 +16,7 @@ dependencies = [
  "oltsp",
  "rand 0.8.4",
  "rayon",
+ "rustc-hash",
  "serde",
 ]
 

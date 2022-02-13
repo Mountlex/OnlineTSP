@@ -65,5 +65,5 @@ else:
         zone_nodes = json.load(file)
 
 for i in range(5):
-    generate_instance(f"data/instances/instance{i}.csv", zone_nodes, length=200)
+    generate_instance(f"data/instances/instance{i}.csv", zone_nodes, length=50)
 
