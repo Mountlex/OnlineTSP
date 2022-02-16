@@ -59,7 +59,7 @@ impl MetricView<'_, ShortestPathsCache> {
     ) -> (Node, Option<DistanceCache>) {
         let (path_cost, path) = dijkstra_path(base_graph, virtual_source, virtual_sink);
         assert!(at > Cost::new(0));
-        assert!(at < path_cost);
+        //assert!(at < path_cost);
         assert_eq!(path.first().copied(), Some(virtual_source));
         assert_eq!(path.last().copied(), Some(virtual_sink));
 
@@ -73,13 +73,18 @@ impl MetricView<'_, ShortestPathsCache> {
                 return (edge[1], None);
             } else if walked + edge_cost > at {
                 let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
-              
+                
+                if let Some(virtual_node) = self.virtual_node {
+                    base_graph.remove_virtual_node(virtual_node);
+                }
+
                 let buffer = self.metric.split_edge_to_buffer( edge[0], edge[1], at - walked, edge_cost, self.virtual_node, self.buffer.clone());
                 
                 return (new_node, Some(buffer));
             }
             walked += edge_cost;
         }
+        return (virtual_sink, None);
         panic!("Could not split edge!")
     }
 }
