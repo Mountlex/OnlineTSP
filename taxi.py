@@ -64,6 +64,6 @@ else:
     with open("data/manhattan_zones.json", "r") as file:
         zone_nodes = json.load(file)
 
-for i in range(5):
-    generate_instance(f"data/instances/instance{i}.csv", zone_nodes, length=50)
+for i in range(1):
+    generate_instance(f"data/instances/instance{i}.csv", zone_nodes, length=20)
 

@@ -25,6 +25,9 @@ struct Exp1 {
     )]
     graph: PathBuf,
 
+    #[clap(long = "wc-rd")]
+    wc_rd: bool,
+
     #[clap(long = "num-sigma", default_value = "10")]
     num_sigmas: i32,
 
@@ -76,23 +79,27 @@ fn main() -> Result<()> {
                 .flat_map(|file| {
                     let start_node = 1.into();
                     log::info!("Loading instance from {:?}", file.path());
-                    let instance = instance_from_file(&file.path()).unwrap();
+                    let mut instance = instance_from_file(&file.path()).unwrap();
 
                     let mut nodes = instance.distinct_nodes();
                     if !nodes.contains(&start_node) {
                         nodes.push(start_node)
                     }
-                    let metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp.clone());
-                    let (_,tour) = tsp::tsp_tour(&metric_graph, start_node, graphlib::tsp::SolutionType::Approx);
-                    let mut reqs: Vec<(NodeRequest, usize)> = vec![];
-                    let mut t = 0;
-                    for edge in tour.windows(2) {
-                        t += metric_graph.distance(edge[0], edge[1]).get_usize();
-                        reqs.push((NodeRequest(edge[1]), t));
+
+                    if exp.wc_rd {
+                        let metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp.clone());
+                        let (_,tour) = tsp::tsp_tour(&metric_graph, start_node, graphlib::tsp::SolutionType::Approx);
+                        let mut reqs: Vec<(NodeRequest, usize)> = vec![];
+                        let mut t = 0;
+                        for edge in tour.windows(2) {
+                            t += metric_graph.distance(edge[0], edge[1]).get_usize();
+                            reqs.push((NodeRequest(edge[1]), t));
+                        }
+                        instance = Instance {
+                            requests: reqs
+                        };
                     }
-                    let instance = Instance {
-                        requests: reqs
-                    };
+                    
 
                     log::info!("Computing optimal solution for {:?}...", file.file_name());
                     let (opt, tour) = instance.optimal_solution(start_node, &sp, graphlib::tsp::SolutionType::Approx);
@@ -102,7 +109,7 @@ fn main() -> Result<()> {
 
                     let t_ignore = ignore(
                         &graph,
-                        &metric_graph,
+                        &sp,
                         instance.clone(),
                         start_node,
                         graphlib::tsp::SolutionType::Approx,
@@ -110,7 +117,7 @@ fn main() -> Result<()> {
 
                     let t_replan = replan(
                         &graph,
-                        &metric_graph,
+                        &sp,
                         instance.clone(),
                         start_node,
                         graphlib::tsp::SolutionType::Approx,
@@ -118,13 +125,13 @@ fn main() -> Result<()> {
                     
                     let t_smart = smartstart(
                         &graph,
-                        &metric_graph,
+                        &sp,
                         instance.clone(),
                         start_node,
                         graphlib::tsp::SolutionType::Approx,
                     ) as u64;
 
-                    let results: Vec<Exp1Result> = (0..exp.num_sigmas).into_par_iter().flat_map(|sigma_num| {
+                    let results: Vec<Exp1Result> = (0..exp.num_sigmas).into_iter().flat_map(|sigma_num| {
                         let sigma = exp.base_sigma.powi(sigma_num) - 1.0;
                         let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, None);
                         let mut results: Vec<Exp1Result> = vec![];
@@ -136,7 +143,7 @@ fn main() -> Result<()> {
                                 opt: opt.get_usize() as u64,
                                 alg: learning_augmented(
                                     &graph,
-                                    &metric_graph,
+                                    &sp,
                                     instance.clone(),
                                     start_node,
                                     *alpha,

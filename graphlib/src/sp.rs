@@ -1,6 +1,6 @@
-use std::{path::PathBuf, io::{BufReader, BufWriter}, fs::File, ops::{Div, Mul}};
+use std::{path::PathBuf, io::{BufReader, BufWriter}, fs::File};
 use anyhow::Result;
-use ndarray::{Array2, ArrayView, NdProducer, Axis, Array1};
+use ndarray::{Array2, ArrayView, Array1};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Serialize, Deserialize};
 
@@ -21,18 +21,80 @@ enum PathCost {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DistanceCache {
+    vector: Array1<PathCost>,
+    index: NodeIndex,
+}
+
+impl DistanceCache {
+    pub fn empty_from_graph<'a, G>(graph: &'a G) -> Self
+    where
+        G: Nodes<'a>,
+    {
+        let mut nodes = graph.nodes().collect::<Vec<Node>>();
+        nodes.sort();
+        let n = nodes.len();
+        let mut d = Array1::from_elem(n, PathCost::Unreachable);
+        for i in 0..n {
+            d[i] = PathCost::Path(0.into());
+        }
+
+        DistanceCache {
+            vector: d,
+            index: NodeIndex::init(&nodes),
+        }
+    }
+
+    pub fn empty_from_index(node_index: NodeIndex) -> Self {
+        let n = node_index.num_nodes();
+        let mut d = Array1::from_elem(n, PathCost::Unreachable);
+        for i in 0..n {
+            d[i] = PathCost::Path(0.into());
+        }
+
+         DistanceCache {
+            vector: d,
+            index: node_index,
+        }
+    }
+
+    pub fn get(&self, n: Node) -> Cost {
+        let idx = self.index[&n];
+
+        self.get_by_index(idx)
+    }
+
+    pub fn get_by_index(&self, idx: usize) -> Cost {
+      
+        if let PathCost::Path(cost) = self.vector[[idx]] {
+            cost
+        } else {
+            panic!("No path known!")
+        }
+    }
+
+    pub fn set(&mut self, n: Node, cost: Cost) {
+        let idx = self.index[&n];
+        self.set_by_index(idx, cost);
+    }
+
+    pub fn set_by_index(&mut self, idx: usize, cost: Cost) {
+        self.vector[[idx]] = PathCost::Path(cost);
+    }
+  
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortestPathsCache {
     matrix: Array2<PathCost>,
     index: NodeIndex,
-    node_in_buffer: Option<Node>,
-    buffer: Option<Array1<PathCost>>
 }
 
 impl ShortestPathsCache {
     pub fn scale(&mut self, scale: usize) {
         self.matrix.map_inplace(|entry| *entry = match entry {
             PathCost::Unreachable => PathCost::Unreachable,
-            PathCost::Path(cost) => PathCost::Path(*cost / scale)
+            PathCost::Path(cost) => PathCost::Path(*cost * scale)
         })
     }
 
@@ -51,10 +113,10 @@ impl ShortestPathsCache {
         ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&nodes),
-            node_in_buffer: None,
-            buffer: None,
         }
     }
+
+    
 
     pub fn add_node<'a, G>(&mut self, new_node: Node, graph: &'a G)
     where
@@ -80,29 +142,31 @@ impl ShortestPathsCache {
         }
     }
 
-    pub fn split_edge_to_buffer<'a, G>(&mut self, new_node: Node, source: Node, sink: Node, at: Cost, edge_cost: Cost, graph: &'a G)
-    where
-        G: Graph<'a>,
-    {
-        let goals = graph
-            .nodes()
-            .filter(|node| self.index.get(node).is_some())
-            .collect::<Vec<Node>>();
-        let idx = self.index.add_node(new_node);
-        self.matrix
-            .push_row(ArrayView::from(&vec![PathCost::Unreachable; idx]))
-            .unwrap();
-        self.matrix
-            .push_column(ArrayView::from(&vec![PathCost::Unreachable; idx + 1]))
-            .unwrap();
-        assert!(self.matrix.is_square());
+    pub fn split_edge_to_buffer(&self, source: Node, sink: Node, at: Cost, edge_cost: Cost, virtual_node: Option<Node>, buffer: Option<DistanceCache>) -> DistanceCache {
+        let mut d = DistanceCache::empty_from_index(self.index.clone());
+        let n = self.index.num_nodes();
 
-        self.set(new_node, new_node, Cost::new(0));       
-        for node in goals {
-            let p1 = self.get(node, source) + at;
-            let p2 = self.get(node, sink) + edge_cost - at;
-            self.set(new_node, node, Cost::new(p1.get_usize().min(p2.get_usize())));
+       
+        for idx in 0..n {
+            if Some(source) == virtual_node {
+                let sink_idx = self.index[&sink];
+                let p1 = buffer.as_ref().unwrap().get_by_index(idx) + at;
+                let p2 = self.get_by_index(idx, sink_idx) + edge_cost - at;
+                d.set_by_index(idx,  Cost::new(p1.get_usize().min(p2.get_usize())));
+            } else if Some(sink) == virtual_node {
+                let source_idx = self.index[&source];
+                let p1 = self.get_by_index(idx, source_idx) + at;
+                let p2 = buffer.as_ref().unwrap().get_by_index(idx) + edge_cost - at;
+                d.set_by_index(idx,  Cost::new(p1.get_usize().min(p2.get_usize())));
+            } else {
+                let source_idx = self.index[&source];
+                let sink_idx = self.index[&sink];
+                let p1 = self.get_by_index(idx, source_idx) + at;
+                let p2 = self.get_by_index(idx, sink_idx) + edge_cost - at;
+                d.set_by_index(idx,  Cost::new(p1.get_usize().min(p2.get_usize())));
+            }
         }
+        d
     }
 
     pub fn compute_all_graph_pairs<'a, G>(graph: &'a G) -> Self
@@ -129,8 +193,6 @@ impl ShortestPathsCache {
         let mut sp = ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&sorted_nodes),
-            buffer: None,
-            node_in_buffer: None,
         };
 
         for (i, &n1) in sorted_nodes.iter().enumerate() {
@@ -177,8 +239,6 @@ impl ShortestPathsCache {
         let mut sp = ShortestPathsCache {
             matrix: d,
             index: NodeIndex::init(&sorted_nodes),
-            node_in_buffer : None,
-            buffer: None
         };
 
         let indexed_nodes: Vec<(usize, Node)> = sorted_nodes.iter().copied().enumerate().collect();

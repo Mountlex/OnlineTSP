@@ -1,15 +1,16 @@
 use graphlib::{
     mst,
+    sp::{DistanceCache, ShortestPathsCache},
     tsp::{self, SolutionType, TimedTour},
-    AdjListGraph, Cost, Metric, Node, Nodes, SpMetricGraph,
+    AdjListGraph, Cost, Metric, MetricView, Node,
 };
 use rustc_hash::FxHashMap;
 
 use crate::instance::{Instance, NodeRequest, Request};
 
-pub struct Environment<G, R> {
+pub struct Environment<'a, G, R> {
     base_graph: G,
-    metric_graph: SpMetricGraph,
+    metric: &'a ShortestPathsCache,
     current_nodes: Vec<Node>,
     time: usize,
     origin: Node,
@@ -17,15 +18,17 @@ pub struct Environment<G, R> {
     instance: Instance<R>,
     known_requests: Vec<Node>,
     next_release: Option<usize>,
+    virtual_node: Option<Node>,
+    buffer: Option<DistanceCache>,
 }
 
-impl<R> Environment<AdjListGraph, R>
+impl<'a, R> Environment<'a, AdjListGraph, R>
 where
     R: Clone + Request,
 {
     pub fn init(
         base_graph: &AdjListGraph,
-        metric_graph: &SpMetricGraph,
+        metric: &'a ShortestPathsCache,
         mut instance: Instance<R>,
         origin: Node,
     ) -> Self {
@@ -36,7 +39,7 @@ where
 
         Self {
             base_graph: base_graph.clone(),
-            metric_graph: metric_graph.clone(),
+            metric,
             current_nodes: nodes,
             time: 0,
             origin,
@@ -44,6 +47,8 @@ where
             instance,
             known_requests,
             next_release,
+            virtual_node: None,
+            buffer: None,
         }
     }
 
@@ -55,7 +60,7 @@ where
                 // wait until source_wait before we traverse edge, if this time has not passed yet.
                 self.time = self.time.max(*source_wait);
             }
-            let length = self.metric_graph.distance(edge[0], edge[1]);
+            let length = self.metric.distance(edge[0], edge[1]);
 
             self.pos = edge[1];
             self.time += length.get_usize();
@@ -68,13 +73,7 @@ where
         time_back: usize,
     ) -> (bool, Vec<Node>) {
         assert_eq!(Some(&self.pos), tour.nodes().first());
-        assert!(
-            self.metric_graph
-                .distance(self.origin, self.pos)
-                .get_usize()
-                + self.time
-                <= time_back
-        );
+        assert!(self.metric.distance(self.origin, self.pos).get_usize() + self.time <= time_back);
 
         // nodes that we visited until its release date in tour
         let mut served_nodes: Vec<Node> = vec![];
@@ -87,8 +86,8 @@ where
                 self.time
             };
 
-            let length = self.metric_graph.distance(edge[0], edge[1]);
-            if self.metric_graph.distance(self.origin, edge[1]).get_usize()
+            let length = self.metric.distance(edge[0], edge[1]);
+            if self.metric.distance(self.origin, edge[1]).get_usize()
                 + start_time
                 + length.get_usize()
                 <= time_back
@@ -98,10 +97,7 @@ where
                 self.time = start_time + length.get_usize();
             } else {
                 // move back to the origin
-                let back_distance = self
-                    .metric_graph
-                    .distance(self.origin, self.pos)
-                    .get_usize();
+                let back_distance = self.metric.distance(self.origin, self.pos).get_usize();
 
                 if start_time + back_distance <= time_back {
                     // serve current request
@@ -123,6 +119,13 @@ where
         // nodes that we visited until its release date in tour
         let mut served_nodes: Vec<Node> = vec![];
 
+        let metric_graph = MetricView::from_metric_on_nodes(
+            self.current_nodes.clone(),
+            self.metric,
+            self.virtual_node,
+            self.buffer.clone(),
+        );
+
         for (edge, source_wait) in tour.nodes().windows(2).zip(tour.waiting_until()) {
             if let Some(source_wait) = source_wait {
                 if let Some(next_release) = self.next_release {
@@ -134,7 +137,7 @@ where
                 // wait until source_wait before we traverse edge, if this time has not passed yet.
                 self.time = self.time.max(*source_wait);
             }
-            let length = self.metric_graph.distance(edge[0], edge[1]).get_usize();
+            let length = metric_graph.distance(edge[0], edge[1]).get_usize();
             served_nodes.push(edge[0]);
             if let Some(next_release) = self.next_release {
                 if self.time + length > next_release {
@@ -147,12 +150,26 @@ where
                     }
                     // we don't reach edge[1]
                     //log::trace!("Split edge {}-{} at {}, next_release={}, time={}", edge[0], edge[1], next_release - self.time, next_release, self.time);
-                    self.pos = self.metric_graph.split_virtual_edge(
+
+                    let metric_graph = MetricView::from_metric_on_nodes(
+                        self.current_nodes.clone(),
+                        self.metric,
+                        self.virtual_node,
+                        self.buffer.clone(),
+                    );
+
+                    let (pos, buffer) = metric_graph.split_virtual_edge(
                         edge[0],
                         edge[1],
                         Cost::new(next_release - self.time),
                         &mut self.base_graph,
                     );
+                    self.pos = pos;
+                    if buffer.is_some() {
+                        self.virtual_node = Some(pos);
+                        self.buffer = buffer;
+                    }
+
                     if !self.current_nodes.contains(&self.pos) {
                         self.current_nodes.push(self.pos);
                     }
@@ -186,11 +203,14 @@ pub fn ignore(
     back_until: Option<usize>,
     sol_type: SolutionType,
 ) -> usize {
+    log::info!("======== Starting IGNORE");
     loop {
         assert_eq!(env.origin, env.pos);
-        let tour_graph = SpMetricGraph::from_metric_on_nodes(
+        let tour_graph = MetricView::from_metric_on_nodes(
             env.current_nodes.clone(),
-            env.metric_graph.metric_clone(),
+            env.metric,
+            env.virtual_node,
+            env.buffer.clone(),
         );
         let (_, tour) = tsp::tsp_tour(&tour_graph, env.origin, sol_type);
         let start_time = env.time;
@@ -231,11 +251,14 @@ pub fn smartstart(
     back_until: Option<usize>,
     sol_type: SolutionType,
 ) -> usize {
+    log::info!("======== Starting SMARTSTART");
     loop {
         assert_eq!(env.origin, env.pos);
-        let tour_graph = SpMetricGraph::from_metric_on_nodes(
+        let tour_graph = MetricView::from_metric_on_nodes(
             env.current_nodes.clone(),
-            env.metric_graph.metric_clone(),
+            env.metric,
+            env.virtual_node,
+            env.buffer.clone(),
         );
         let (cost, tour) = tsp::tsp_tour(&tour_graph, env.origin, sol_type);
 
@@ -244,42 +267,40 @@ pub fn smartstart(
             // work
 
             if let Some(back) = back_until {
-                let (abort, served) = env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
-                env.remove_served_requests(&served);
-                if abort {
+                if env.time + cost.get_usize() > back {
                     return env.time;
                 }
-            } else {
-                env.follow_tour(TimedTour::from_tour(tour.clone()));
-                env.remove_served_requests(&tour);
             }
+            env.follow_tour(TimedTour::from_tour(tour.clone()));
+            env.remove_served_requests(&tour);
         } else {
             // sleep
 
             let sleep_until = cost.get_usize();
 
             if let Some(back) = back_until {
-               if back <= sleep_until {
-                   return back.max(env.time)
-               }
-            } else {
-                env.time = sleep_until;
+                if back <= sleep_until {
+                    env.time = back;
+                    return back;
+                }
             }
+            env.time = sleep_until;
         }
 
-        
-        if env.next_release.is_none() && env.current_nodes.len() == 1 && env.current_nodes.first() == Some(&env.origin) {
-            return env.time
+        if env.next_release.is_none()
+            && env.current_nodes.len() == 1
+            && env.current_nodes.first() == Some(&env.origin)
+        {
+            return env.time;
         }
-        
+
         if env.next_release.is_some() {
-
             // wait until next release
             let wait_until = env.time.max(env.next_release.unwrap());
             if let Some(back) = back_until {
                 if wait_until > back {
-                    env.time = back.max(env.time);
-                    return back;
+                    env.time = back;
+                    return env.time;
                 }
             }
             env.time = wait_until;
@@ -289,43 +310,41 @@ pub fn smartstart(
             env.add_requests(new_requests);
             env.next_release = next_release;
         }
-
     }
 }
 
-pub fn replan(
-    env: &mut Environment<AdjListGraph, NodeRequest>,
-    back_until: Option<usize>,
-    sol_type: SolutionType,
-) -> usize {
+pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: SolutionType) -> usize {
+    log::info!("======== Starting REPLAN");
     loop {
         let start_time = env.time;
 
         log::info!("Replan: compute tsp path from {} to origin", env.pos);
-        let tour_graph = SpMetricGraph::from_metric_on_nodes(
+        let tour_graph = MetricView::from_metric_on_nodes(
             env.current_nodes.clone(),
-            env.metric_graph.metric_clone(),
+            env.metric,
+            env.virtual_node,
+            env.buffer.clone(),
         );
         let (_, tour) = tsp::tsp_path(&tour_graph, env.pos, env.origin, sol_type);
         log::info!("Replan: current tour = {:?}", tour);
 
-        if let Some(back) = back_until {
-            // here is a bug
-            if env.next_release.is_none() || env.next_release.unwrap() > back {
-                log::info!("Replan: follow tour and be back by {}", back);
-                let (abort, served) =
-                    env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
-                env.remove_served_requests(&served);
-                if abort {
-                    // if we cancel the tour
-                    return env.time;
-                } else {
-                    // we reached origin without cancel -> wait until back_until
-                    env.time = back;
-                    return back;
-                }
-            }
-        }
+        // if let Some(back) = back_until {
+        //     // here is a bug
+        //     if env.next_release.is_none() || env.next_release.unwrap() > back {
+        //         log::info!("Replan: follow tour and be back by {}", back);
+        //         let (abort, served) =
+        //             env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
+        //         env.remove_served_requests(&served);
+        //         if abort {
+        //             // if we cancel the tour
+        //             return env.time;
+        //         } else {
+        //             // we reached origin without cancel -> wait until back_until
+        //             env.time = back;
+        //             return back;
+        //         }
+        //     }
+        // }
         log::info!("Replan: follow tour until next release date");
         let served = env.follow_tour_until_next_release(TimedTour::from_tour(tour));
         env.remove_served_requests(&served);
@@ -336,12 +355,12 @@ pub fn replan(
 
         // wait until next release
         let wait_until = env.time.max(env.next_release.unwrap());
-        if let Some(back) = back_until {
-            if wait_until > back {
-                env.time = back;
-                return back;
-            }
-        }
+        // if let Some(back) = back_until {
+        //     if wait_until > back {
+        //         env.time = back;
+        //         return back;
+        //     }
+        // }
         if wait_until > env.time {
             log::info!("Replan: wait until {}", wait_until);
         }
@@ -362,34 +381,39 @@ pub fn learning_augmented(
     log::info!("======== Starting Predict-Replan with alpha = {}.", &alpha);
 
     let mut pred_nodes = prediction.nodes();
-    let mut instances_nodes: Vec<Node> = env.metric_graph.nodes().collect();
-    instances_nodes.append(&mut pred_nodes);
-    instances_nodes.sort();
-    instances_nodes.dedup();
-    let metric_graph =
-        SpMetricGraph::from_metric_on_nodes(instances_nodes, env.metric_graph.metric_clone());
-    env.metric_graph = metric_graph;
+    let mut nodes: Vec<Node> = env.instance.nodes();
+    nodes.append(&mut pred_nodes);
+    nodes.sort();
+    nodes.dedup();
 
+    // Phase (i)
     let opt_pred = prediction
-        .optimal_solution(env.origin, env.metric_graph.metric_ref(), sol_type)
+        .optimal_solution(env.origin, env.metric, sol_type)
         .0
         .as_float();
     let back_until = (opt_pred * alpha).floor() as usize;
 
-    log::info!("Predict-Replan: execute replan until time {}.", back_until);
-    ignore(env, Some(back_until), sol_type);
+    log::info!(
+        "Predict-Replan: execute SMARTSTART until time {}.",
+        back_until
+    );
+    smartstart(env, Some(back_until), sol_type);
     assert_eq!(env.pos, env.origin);
     assert!(env.time <= back_until);
 
+    // Phase (ii)
+    env.time = env.time.max((opt_pred * alpha / 2.0).floor() as usize);
+
+    // Phase (iii)
     let mut release_dates: FxHashMap<Node, usize> = prediction.release_dates();
-    for node in env.metric_graph.nodes() {
+    for node in env.instance.distinct_nodes() {
         if !release_dates.contains_key(&node) && node != env.origin {
             release_dates.insert(node, 0);
         }
     }
 
     // some predicted requests may already be served, but we dont care?
-    env.add_requests(prediction.nodes());
+    env.add_requests(prediction.distinct_nodes());
 
     if let Some(next_release) = env.next_release {
         if next_release < env.time {
@@ -410,9 +434,11 @@ pub fn learning_augmented(
     loop {
         let start_time = env.time;
 
-        let tour_graph = SpMetricGraph::from_metric_on_nodes(
+        let tour_graph = MetricView::from_metric_on_nodes(
             env.current_nodes.clone(),
-            env.metric_graph.metric_clone(),
+            env.metric,
+            env.virtual_node,
+            env.buffer.clone(),
         );
 
         // update release date w.r.t. current time
@@ -484,6 +510,8 @@ pub fn learning_augmented(
 
 #[cfg(test)]
 mod test_algorithms {
+    use graphlib::SpMetricGraph;
+
     use super::*;
 
     #[test]
@@ -502,7 +530,7 @@ mod test_algorithms {
         let metric_graph = SpMetricGraph::from_graph(&graph);
 
         let instance = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance, 1.into());
+        let mut env = Environment::init(&graph, metric_graph.metric_ref(), instance, 1.into());
 
         let cost = ignore(&mut env, None, SolutionType::Optimal);
         assert_eq!(cost, 18 + 10)
@@ -524,27 +552,52 @@ mod test_algorithms {
         let metric_graph = SpMetricGraph::from_graph(&graph);
 
         let instance = Instance::<NodeRequest>::default();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
+        let mut env = Environment::init(
+            &graph,
+            metric_graph.metric_ref(),
+            instance.clone(),
+            1.into(),
+        );
         let cost = ignore(&mut env, None, SolutionType::Optimal);
         assert_eq!(cost, 0);
 
         let instance: Instance<NodeRequest> = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
+        let mut env = Environment::init(
+            &graph,
+            metric_graph.metric_ref(),
+            instance.clone(),
+            1.into(),
+        );
         let cost = ignore(&mut env, Some(0), SolutionType::Optimal);
         assert_eq!(cost, 0);
 
         let instance: Instance<NodeRequest> = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
+        let mut env = Environment::init(
+            &graph,
+            metric_graph.metric_ref(),
+            instance.clone(),
+            1.into(),
+        );
         let cost = ignore(&mut env, Some(10), SolutionType::Optimal);
         assert_eq!(cost, 0);
 
         let instance: Instance<NodeRequest> = vec![(2, 0), (5, 0), (6, 1), (3, 1)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
+        let mut env = Environment::init(
+            &graph,
+            metric_graph.metric_ref(),
+            instance.clone(),
+            1.into(),
+        );
         let cost = ignore(&mut env, Some(10), SolutionType::Optimal);
         assert_eq!(cost, 10);
 
         let instance: Instance<NodeRequest> = vec![(2, 11)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
+        let mut env = Environment::init(
+            &graph,
+            metric_graph.metric_ref(),
+            instance.clone(),
+            1.into(),
+        );
         let cost = ignore(&mut env, Some(10), SolutionType::Optimal);
         assert_eq!(cost, 10);
     }
@@ -565,9 +618,9 @@ mod test_algorithms {
         let metric_graph = SpMetricGraph::from_graph(&graph);
 
         let instance = vec![(3, 0), (6, 0), (2, 7), (5, 7)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance, 1.into());
+        let mut env = Environment::init(&graph, metric_graph.metric_ref(), instance, 1.into());
 
-        let cost = replan(&mut env, None, SolutionType::Optimal);
+        let cost = replan(&mut env, SolutionType::Optimal);
         assert_eq!(cost, 7 + 11)
     }
 
@@ -587,28 +640,13 @@ mod test_algorithms {
         let metric_graph = SpMetricGraph::from_graph(&graph);
 
         let instance = Instance::<NodeRequest>::default();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
-        let cost = replan(&mut env, None, SolutionType::Optimal);
+        let mut env = Environment::init(
+            &graph,
+            metric_graph.metric_ref(),
+            instance.clone(),
+            1.into(),
+        );
+        let cost = replan(&mut env, SolutionType::Optimal);
         assert_eq!(cost, 0);
-
-        let instance: Instance<NodeRequest> = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
-        let cost = replan(&mut env, Some(0), SolutionType::Optimal);
-        assert_eq!(cost, 0);
-
-        let instance: Instance<NodeRequest> = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
-        let cost = replan(&mut env, Some(0), SolutionType::Optimal);
-        assert_eq!(cost, 0);
-
-        let instance: Instance<NodeRequest> = vec![(2, 0), (5, 0), (6, 1), (3, 1)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
-        let cost = replan(&mut env, Some(10), SolutionType::Optimal);
-        assert_eq!(cost, 10);
-
-        let instance: Instance<NodeRequest> = vec![(2, 11)].into();
-        let mut env = Environment::init(&graph, &metric_graph, instance.clone(), 1.into());
-        let cost = replan(&mut env, Some(10), SolutionType::Optimal);
-        assert_eq!(cost, 10);
     }
 }

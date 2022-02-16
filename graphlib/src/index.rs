@@ -28,6 +28,10 @@ impl NodeIndex {
         }
     }
 
+    pub fn num_nodes(&self) -> usize {
+        self.num_nodes
+    }
+
     pub fn add_node(&mut self, new_node: Node) -> usize {
         if self.index.len() + self.min_node_index > new_node.id()
             && new_node.id() >= self.min_node_index

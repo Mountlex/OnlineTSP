@@ -2,8 +2,8 @@ use std::{error::Error, path::PathBuf};
 
 use graphlib::{
     mst,
-    tsp::{tsp_rd_tour, SolutionType, TimedTour, self},
-    Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, SpMetricGraph, Weighted, MetricView,
+    tsp::{SolutionType, TimedTour, self},
+    Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, Weighted, MetricView,
 };
 use std::fmt::Debug;
 use rustc_hash::FxHashMap;
@@ -132,6 +132,8 @@ where
         let tour_graph = MetricView::from_metric_on_nodes(
             nodes,
             metric,
+            None,
+            None,
         );
 
         let max_rd: usize = distinct_release_dates.values().copied().max().unwrap();

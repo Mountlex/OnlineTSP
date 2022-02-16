@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     Adjacency, Cost, Cut, CutIter, Edge, Graph, GraphSize, Metric, Neighbors, Node, NodeIndex,
-    NodeSet, Nodes, Weighted,
+    NodeSet, Nodes, Weighted, sp::{DistanceCache, ShortestPathsCache}, dijkstra::dijkstra_path, AdjListGraph,
 };
 
 #[derive(Clone, Debug)]
@@ -10,18 +10,27 @@ pub struct MetricView<'a, M> {
     nodes: Vec<Node>,
     node_index: NodeIndex,
     metric: &'a M,
+    virtual_node: Option<Node>,
+    buffer: Option<DistanceCache>,
 }
 
 impl<'a, M> MetricView<'a, M>
 where
     M: Metric,
 {
-    pub fn from_metric_on_nodes(nodes: Vec<Node>, metric: &'a M) -> Self {
+    pub fn from_metric_on_nodes(mut nodes: Vec<Node>, metric: &'a M, virtual_node: Option<Node>, buffer: Option<DistanceCache>) -> Self {
+        if let Some(v_node) = virtual_node {
+            if !nodes.contains(&v_node) {
+                nodes.push(v_node);
+            }
+        }
         let node_index = NodeIndex::init(&nodes);
         Self {
             nodes,
             node_index,
             metric,
+            virtual_node,
+            buffer
         }
     }
 
@@ -36,14 +45,58 @@ where
         self.nodes.retain(|n| *n != node);
         self.node_index = NodeIndex::init(&self.nodes);
     }
+
+    
 }
+
+impl MetricView<'_, ShortestPathsCache> {
+    pub fn split_virtual_edge(
+        &self,
+        virtual_source: Node,
+        virtual_sink: Node,
+        at: Cost,
+        base_graph: &mut AdjListGraph,
+    ) -> (Node, Option<DistanceCache>) {
+        let (path_cost, path) = dijkstra_path(base_graph, virtual_source, virtual_sink);
+        assert!(at > Cost::new(0));
+        assert!(at < path_cost);
+        assert_eq!(path.first().copied(), Some(virtual_source));
+        assert_eq!(path.last().copied(), Some(virtual_sink));
+
+        let mut walked = Cost::new(0);
+
+        for edge in path.windows(2) {
+            let edge_cost = base_graph.edge_cost(edge[0], edge[1]).unwrap();
+            if walked + edge_cost == at {
+                // split is at base_graph node edge[1]
+                assert!(self.metric.contains_node(edge[1]));
+                return (edge[1], None);
+            } else if walked + edge_cost > at {
+                let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
+              
+                let buffer = self.metric.split_edge_to_buffer( edge[0], edge[1], at - walked, edge_cost, self.virtual_node, self.buffer.clone());
+                
+                return (new_node, Some(buffer));
+            }
+            walked += edge_cost;
+        }
+        panic!("Could not split edge!")
+    }
+}
+
 
 impl<M> Metric for MetricView<'_, M>
 where
     M: Metric,
 {
     fn distance(&self, node1: Node, node2: Node) -> Cost {
-        self.metric.distance(node1, node2)
+        if Some(node1) == self.virtual_node {
+            self.buffer.as_ref().unwrap().get(node2)
+        } else if Some(node2) == self.virtual_node {
+            self.buffer.as_ref().unwrap().get(node1)
+        } else {
+            self.metric.distance(node1, node2)
+        }
     }
 }
 
@@ -70,13 +123,13 @@ where
 }
 
 pub struct AdjacencyIter<'a, M> {
-    metric: &'a M,
+    metric: &'a MetricView<'a, M>,
     node: Node,
     adj_iter: std::slice::Iter<'a, Node>,
 }
 
 impl<'a, M> AdjacencyIter<'a, M> {
-    fn new(metric: &'a M, node: Node, adj_iter: std::slice::Iter<'a, Node>) -> Self {
+    fn new(metric: &'a MetricView<M>, node: Node, adj_iter: std::slice::Iter<'a, Node>) -> Self {
         Self {
             metric,
             node,
@@ -118,7 +171,7 @@ where
     type AdjacencyIter = AdjacencyIter<'a, M>;
 
     fn adjacent(&'a self, node: Node) -> Self::AdjacencyIter {
-        AdjacencyIter::new(&self.metric, node, self.nodes.iter())
+        AdjacencyIter::new(self, node, self.nodes.iter())
     }
 }
 
