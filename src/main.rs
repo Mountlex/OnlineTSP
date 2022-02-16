@@ -75,7 +75,7 @@ fn main() -> Result<()> {
                 .collect();
 
             let results: Vec<Exp1Result> = paths
-                .into_iter()
+                .into_par_iter()
                 .flat_map(|file| {
                     let start_node = 1.into();
                     log::info!("Loading instance from {:?}", file.path());
@@ -95,9 +95,7 @@ fn main() -> Result<()> {
                             t += metric_graph.distance(edge[0], edge[1]).get_usize();
                             reqs.push((NodeRequest(edge[1]), t));
                         }
-                        instance = Instance {
-                            requests: reqs
-                        };
+                        instance = reqs.into()
                     }
                     
 

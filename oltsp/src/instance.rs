@@ -29,7 +29,7 @@ impl Request for NodeRequest {
 
 #[derive(Default, Clone, Debug)]
 pub struct Instance<R> {
-    pub requests: Vec<(R, usize)>,
+    requests: Vec<(R, usize)>,
 }
 
 impl From<Vec<(usize, usize)>> for Instance<NodeRequest> {
@@ -55,6 +55,10 @@ impl<R> Instance<R>
 where
     R: Clone + Request,
 {
+    pub fn reqs(&self) -> &Vec<(R, usize)> {
+        &self.requests
+    }
+
     pub fn len(&self) -> usize {
         self.requests.len()
     }

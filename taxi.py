@@ -30,26 +30,29 @@ def load_nodes_in_zones(graph_file, zone_file):
 
 start = datetime.fromisoformat('2021-01-01 00:00:00')
 
-def generate_instance(output_file, zone_nodes, length=50 ,taxi_file="data/yellow_taxi_data_jan1.csv"):
+def generate_instance(output_file, i, m, zone_nodes, length=50 ,taxi_file="data/yellow_taxi_data_jan1.csv"):
     with open(taxi_file, newline='') as inputfile:
         with open(output_file, 'w', newline='') as outputfile:
             reader = csv.DictReader(inputfile, delimiter=',')
             writer = csv.writer(outputfile, delimiter=',')
             n = 0
             entries = list(reader)
-            while n < length:
-                row = random.choice(entries)
-           
+
+
+
+            for row in entries[i::m]:      
                 date_raw = row['tpep_pickup_datetime']
                 duration = datetime.fromisoformat(date_raw) - start   
 
-                t = round(duration.total_seconds() / 60)
+                t = max(0, round(duration.total_seconds() / 60))
                 x = row['PULocationID']
         
                 if x in zone_nodes and len(zone_nodes[x]) > 0:
                     node = random.choice(zone_nodes[x])
                     writer.writerow([node,t])
                     n += 1
+                    if n == length:
+                        break
             outputfile.flush()
             outputfile.close()
                     
@@ -64,6 +67,7 @@ else:
     with open("data/manhattan_zones.json", "r") as file:
         zone_nodes = json.load(file)
 
-for i in range(5):
-    generate_instance(f"data/instances/instance{i}.csv", zone_nodes, length=50)
+m = 10
+for i in range(m):
+    generate_instance(f"data/instances/instance{i}.csv",i, m , zone_nodes, length=500)
 

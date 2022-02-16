@@ -28,7 +28,7 @@ pub fn gaussian_prediction(
 
     // TODO different sizes
     let dist = Normal::new(0.0, sigma).unwrap();
-    let preds: Vec<(NodeRequest, usize)> = instance.requests.iter().map(|(x,t)| {
+    let preds: Vec<(NodeRequest, usize)> = instance.reqs().iter().map(|(x,t)| {
         let pred_t = (*t as f64 + dist.sample(&mut rng)).max(0.0).round() as usize;
         
         // TODO
@@ -45,5 +45,5 @@ pub fn gaussian_prediction(
         }
         (pred_n, pred_t)
     }).collect();
-    Instance { requests: preds }
+    preds.into()
 }

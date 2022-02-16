@@ -41,11 +41,11 @@ def plot(filename, save):
     df['param'] = df[['name','param']].apply(lambda x: legend(*x),axis=1)
 
     ax = sns.lineplot(data=df, x=x_name, y="cr", hue='param', style='param', markers=('round' in list(df)), linewidth=2.5, markersize=8)
-    
+    handlers,_ = ax.get_legend_handles_labels()
  
-    plt.legend(labels=df['param'].unique(),ncol=2, loc="upper left")
+    ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
     ax.set(xscale='symlog')
-    plt.ylim(top=4.5)
+    plt.ylim(top=2,bottom=0.8)
     plt.xlabel("Noise parameter")
 
     plt.ylabel('Empirical competitive ratio')

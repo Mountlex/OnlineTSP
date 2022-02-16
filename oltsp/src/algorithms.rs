@@ -127,10 +127,12 @@ where
         );
 
         for (edge, source_wait) in tour.nodes().windows(2).zip(tour.waiting_until()) {
+            
+            
             if let Some(source_wait) = source_wait {
                 if let Some(next_release) = self.next_release {
                     if *source_wait > next_release {
-                        self.time = self.time.max(*source_wait);
+                        self.time = next_release;
                         return served_nodes;
                     }
                 }
@@ -138,8 +140,11 @@ where
                 self.time = self.time.max(*source_wait);
             }
             let length = metric_graph.distance(edge[0], edge[1]).get_usize();
+            // we leave edge[0]
             served_nodes.push(edge[0]);
+
             if let Some(next_release) = self.next_release {
+                // we cannot reach edge[1]
                 if self.time + length > next_release {
                     if length == 0 {
                         self.time = next_release;
@@ -164,16 +169,16 @@ where
                         Cost::new(next_release - self.time),
                         &mut self.base_graph,
                     );
-                    self.pos = pos;
                     if buffer.is_some() {
                         self.virtual_node = Some(pos);
                         self.buffer = buffer;
                     }
-
-                    if !self.current_nodes.contains(&self.pos) {
-                        self.current_nodes.push(self.pos);
+                    
+                    if !self.current_nodes.contains(&pos) {
+                        self.current_nodes.push(pos);
                     }
-
+                    
+                    self.pos = pos;
                     self.time = next_release;
                     return served_nodes;
                 }
@@ -350,6 +355,7 @@ pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: Soluti
         env.remove_served_requests(&served);
 
         if env.next_release.is_none() {
+            assert_eq!(vec![env.origin], env.current_nodes);
             return env.time;
         }
 
@@ -367,6 +373,7 @@ pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: Soluti
         env.time = wait_until;
 
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
+        log::info!("Replan: released nodes at time {} are {:?}", env.time, new_requests);
         env.add_requests(new_requests);
         env.next_release = next_release;
     }
@@ -399,7 +406,8 @@ pub fn learning_augmented(
     );
     smartstart(env, Some(back_until), sol_type);
     assert_eq!(env.pos, env.origin);
-    assert!(env.time <= back_until);
+    //assert!(env.time <= back_until);
+    
 
     // Phase (ii)
     env.time = env.time.max((opt_pred * alpha / 2.0).floor() as usize);

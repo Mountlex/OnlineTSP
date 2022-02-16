@@ -94,7 +94,7 @@ impl ShortestPathsCache {
     pub fn scale(&mut self, scale: usize) {
         self.matrix.map_inplace(|entry| *entry = match entry {
             PathCost::Unreachable => PathCost::Unreachable,
-            PathCost::Path(cost) => PathCost::Path(*cost * scale)
+            PathCost::Path(cost) => PathCost::Path(*cost / scale)
         })
     }
 
@@ -336,7 +336,7 @@ impl ShortestPathsCache {
 
 
 
-pub fn load_or_compute<'a, G>(path: &PathBuf, graph: &'a G, scale: usize,) -> Result<ShortestPathsCache>
+pub fn load_or_compute<'a, G>(path: &PathBuf, graph: &'a G, scale: usize) -> Result<ShortestPathsCache>
 where
     G: Graph<'a> + Sync, {
         if path.is_file() {

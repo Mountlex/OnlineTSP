@@ -69,7 +69,7 @@ impl MetricView<'_, ShortestPathsCache> {
             let edge_cost = base_graph.edge_cost(edge[0], edge[1]).unwrap();
             if walked + edge_cost == at {
                 // split is at base_graph node edge[1]
-                assert!(self.metric.contains_node(edge[1]));
+                //assert!(self.metric.contains_node(edge[1]));
                 return (edge[1], None);
             } else if walked + edge_cost > at {
                 let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
