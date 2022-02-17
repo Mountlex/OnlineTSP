@@ -134,7 +134,7 @@ fn main() -> Result<()> {
                         let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, None);
                         let mut results: Vec<Exp1Result> = vec![];
 
-                        [0.0, 0.5, 1.0].iter().for_each(|alpha| {
+                        [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {
                             results.push(Exp1Result {
                                 name: "pred".into(),
                                 param: *alpha,
