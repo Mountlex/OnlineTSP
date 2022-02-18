@@ -421,7 +421,9 @@ pub fn learning_augmented(
     }
 
     // some predicted requests may already be served, but we dont care?
-    env.add_requests(prediction.distinct_nodes());
+    let preds: Vec<Node> = prediction.distinct_nodes().into_iter().filter(|n| *n == env.pos || *n == env.origin || release_dates[n] >= env.time).collect();
+
+    env.add_requests(preds);
 
     if let Some(next_release) = env.next_release {
         if next_release < env.time {
@@ -504,6 +506,8 @@ pub fn learning_augmented(
         if env.next_release.is_none() {
             return env.time;
         }
+
+        env.current_nodes.retain(|n| *n == env.pos || *n == env.origin || !release_dates.contains_key(n) || release_dates[n] == 0 || release_dates[n] >= env.time);
 
         // wait in origin until next release
         if env.current_nodes.len() == 1 {
