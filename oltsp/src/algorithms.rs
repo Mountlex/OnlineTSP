@@ -127,8 +127,6 @@ where
         );
 
         for (edge, source_wait) in tour.nodes().windows(2).zip(tour.waiting_until()) {
-            
-            
             if let Some(source_wait) = source_wait {
                 if let Some(next_release) = self.next_release {
                     if *source_wait > next_release {
@@ -173,11 +171,11 @@ where
                         self.virtual_node = Some(pos);
                         self.buffer = buffer;
                     }
-                    
+
                     if !self.current_nodes.contains(&pos) {
                         self.current_nodes.push(pos);
                     }
-                    
+
                     self.pos = pos;
                     self.time = next_release;
                     return served_nodes;
@@ -373,7 +371,11 @@ pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: Soluti
         env.time = wait_until;
 
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
-        log::info!("Replan: released nodes at time {} are {:?}", env.time, new_requests);
+        log::info!(
+            "Replan: released nodes at time {} are {:?}",
+            env.time,
+            new_requests
+        );
         env.add_requests(new_requests);
         env.next_release = next_release;
     }
@@ -407,24 +409,22 @@ pub fn learning_augmented(
     smartstart(env, Some(back_until), sol_type);
     assert_eq!(env.pos, env.origin);
     //assert!(env.time <= back_until);
-    
 
     // Phase (ii)
     env.time = env.time.max((opt_pred * alpha / 2.0).floor() as usize);
 
     // Phase (iii)
-    let mut release_dates: FxHashMap<Node, usize> = prediction.release_dates();
-    for node in env.instance.distinct_nodes() {
-        if !release_dates.contains_key(&node) && node != env.origin {
-            release_dates.insert(node, 0);
-        }
-    }
+    let release_dates: FxHashMap<Node, usize> = prediction.release_dates();
 
-    // some predicted requests may already be served, but we dont care?
-    let preds: Vec<Node> = prediction.distinct_nodes().into_iter().filter(|n| *n == env.pos || *n == env.origin || release_dates[n] >= env.time).collect();
-
+    // only consider predicted requests that are released after now
+    let preds: Vec<Node> = prediction
+        .distinct_nodes()
+        .into_iter()
+        .filter(|n| release_dates[n] >= env.time)
+        .collect();
     env.add_requests(preds);
 
+   
     if let Some(next_release) = env.next_release {
         if next_release < env.time {
             let (new_requests, next_release) =
@@ -457,6 +457,7 @@ pub fn learning_augmented(
             .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
             .collect();
 
+        // compute tour
         let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
         let (_, tour) = tsp::tsp_rd_path(
@@ -469,6 +470,7 @@ pub fn learning_augmented(
         );
         log::info!("Predict-Replan: current tour = {}", tour);
 
+        // 
         let mut r = env.next_release;
         'req_search: while let Some(next_release) = r {
             let (reqs, r_new) = env.instance.released_at(next_release);
@@ -479,13 +481,13 @@ pub fn learning_augmented(
                         on_tour = true;
                     }
                     // is this right?
-                    if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() < next_release
+                    if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() + start_time < next_release
                     {
                         log::info!(
                             "Predict-Replan: req {} on current tour, but release later {} > {}",
                             req,
                             next_release,
-                            tour_wait.unwrap()
+                            tour_wait.unwrap() + start_time
                         );
                         break 'req_search;
                     }
@@ -507,7 +509,12 @@ pub fn learning_augmented(
             return env.time;
         }
 
-        env.current_nodes.retain(|n| *n == env.pos || *n == env.origin || !release_dates.contains_key(n) || release_dates[n] == 0 || release_dates[n] >= env.time);
+        env.current_nodes.retain(|n| {
+            *n == env.pos
+                || *n == env.origin
+                || !release_dates.contains_key(n)
+                || release_dates[n] >= env.time
+        });
 
         // wait in origin until next release
         if env.current_nodes.len() == 1 {
