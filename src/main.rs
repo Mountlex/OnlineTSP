@@ -88,7 +88,7 @@ fn main() -> Result<()> {
 
                     if exp.wc_rd {
                         let metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp.clone());
-                        let (_,tour) = tsp::tsp_tour(&metric_graph, start_node, graphlib::tsp::SolutionType::Approx);
+                        let (_,tour) = tsp::tsp_tour(&metric_graph, start_node, graphlib::tsp::SolutionType::Optimal);
                         let mut reqs: Vec<(NodeRequest, usize)> = vec![];
                         let mut t = 0;
                         for edge in tour.windows(2) {
@@ -100,7 +100,7 @@ fn main() -> Result<()> {
                     
 
                     log::info!("Computing optimal solution for {:?}...", file.file_name());
-                    let (opt, tour) = instance.optimal_solution(start_node, &sp, graphlib::tsp::SolutionType::Approx);
+                    let (opt, tour) = instance.optimal_solution(start_node, &sp, graphlib::tsp::SolutionType::Optimal);
                     log::info!("    ...success. Optimal tour = {}", tour);
 
                     let base_nodes: Vec<Node> = graph.nodes().collect();
@@ -110,7 +110,7 @@ fn main() -> Result<()> {
                         &sp,
                         instance.clone(),
                         start_node,
-                        graphlib::tsp::SolutionType::Approx,
+                        graphlib::tsp::SolutionType::Optimal,
                     ) as u64;
 
                     let t_replan = replan(
@@ -118,7 +118,7 @@ fn main() -> Result<()> {
                         &sp,
                         instance.clone(),
                         start_node,
-                        graphlib::tsp::SolutionType::Approx,
+                        graphlib::tsp::SolutionType::Optimal,
                     ) as u64;
                     
                     let t_smart = smartstart(
@@ -126,7 +126,7 @@ fn main() -> Result<()> {
                         &sp,
                         instance.clone(),
                         start_node,
-                        graphlib::tsp::SolutionType::Approx,
+                        graphlib::tsp::SolutionType::Optimal,
                     ) as u64;
 
                     let results: Vec<Exp1Result> = (0..exp.num_sigmas).into_iter().flat_map(|sigma_num| {
@@ -146,7 +146,7 @@ fn main() -> Result<()> {
                                     start_node,
                                     *alpha,
                                     pred.clone(),
-                                    graphlib::tsp::SolutionType::Approx,
+                                    graphlib::tsp::SolutionType::Optimal,
                                 ) as u64,
                                 sigma
                             });

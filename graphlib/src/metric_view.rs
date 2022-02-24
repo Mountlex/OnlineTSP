@@ -110,7 +110,7 @@ where
     M: Metric + Clone + Debug,
 {
     fn edge_cost(&self, node1: Node, node2: Node) -> Option<Cost> {
-        Some(self.metric.distance(node1, node2))
+        Some(self.distance(node1, node2))
     }
 }
 
