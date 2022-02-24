@@ -151,10 +151,10 @@ where
         )
         }
         
-        pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> Cost where M: Metric + Clone + Debug {
-            let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
-        approx
-    }
+        //pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> Cost where M: Metric + Clone + Debug {
+        //    let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
+        //approx
+        //}
 }
 
 struct InstanceGraph<'a, M> {
