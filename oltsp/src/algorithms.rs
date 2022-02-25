@@ -114,6 +114,15 @@ where
     }
 
     fn follow_tour_until_next_release(&mut self, tour: TimedTour) -> Vec<Node> {
+        if let Some(next_release) = self.next_release {
+            self.follow_tour_until_time(tour, next_release)
+        } else {
+            self.follow_tour(tour.clone());
+            tour.nodes().to_vec()
+        }
+    }
+
+    fn follow_tour_until_time(&mut self, tour: TimedTour, until_time: usize) -> Vec<Node> {
         assert_eq!(Some(&self.pos), tour.nodes().first());
 
         // nodes that we visited until its release date in tour
@@ -128,12 +137,11 @@ where
 
         for (edge, source_wait) in tour.nodes().windows(2).zip(tour.waiting_until()) {
             if let Some(source_wait) = source_wait {
-                if let Some(next_release) = self.next_release {
-                    if *source_wait > next_release {
-                        self.time = next_release;
-                        return served_nodes;
-                    }
+                if *source_wait > until_time {
+                    self.time = until_time;
+                    return served_nodes;
                 }
+
                 // wait until source_wait before we traverse edge, if this time has not passed yet.
                 self.time = self.time.max(*source_wait);
             }
@@ -141,46 +149,45 @@ where
             // we leave edge[0]
             served_nodes.push(edge[0]);
 
-            if let Some(next_release) = self.next_release {
-                // we cannot reach edge[1]
-                if self.time + length > next_release {
-                    if length == 0 {
-                        self.time = next_release;
-                        return served_nodes;
-                    }
-                    if self.time == next_release {
-                        return served_nodes;
-                    }
-                    // we don't reach edge[1]
-                    //log::trace!("Split edge {}-{} at {}, next_release={}, time={}", edge[0], edge[1], next_release - self.time, next_release, self.time);
-
-                    let metric_graph = MetricView::from_metric_on_nodes(
-                        self.current_nodes.clone(),
-                        self.metric,
-                        self.virtual_node,
-                        self.buffer.clone(),
-                    );
-
-                    let (pos, buffer) = metric_graph.split_virtual_edge(
-                        edge[0],
-                        edge[1],
-                        Cost::new(next_release - self.time),
-                        &mut self.base_graph,
-                    );
-                    if buffer.is_some() {
-                        self.virtual_node = Some(pos);
-                        self.buffer = buffer;
-                    }
-
-                    if !self.current_nodes.contains(&pos) {
-                        self.current_nodes.push(pos);
-                    }
-
-                    self.pos = pos;
-                    self.time = next_release;
+            // we cannot reach edge[1]
+            if self.time + length > until_time {
+                if length == 0 {
+                    self.time = until_time;
                     return served_nodes;
                 }
+                if self.time == until_time {
+                    return served_nodes;
+                }
+                // we don't reach edge[1]
+                //log::trace!("Split edge {}-{} at {}, until_time={}, time={}", edge[0], edge[1], until_time - self.time, until_time, self.time);
+
+                let metric_graph = MetricView::from_metric_on_nodes(
+                    self.current_nodes.clone(),
+                    self.metric,
+                    self.virtual_node,
+                    self.buffer.clone(),
+                );
+
+                let (pos, buffer) = metric_graph.split_virtual_edge(
+                    edge[0],
+                    edge[1],
+                    Cost::new(until_time - self.time),
+                    &mut self.base_graph,
+                );
+                if buffer.is_some() {
+                    self.virtual_node = Some(pos);
+                    self.buffer = buffer;
+                }
+
+                if !self.current_nodes.contains(&pos) {
+                    self.current_nodes.push(pos);
+                }
+
+                self.pos = pos;
+                self.time = until_time;
+                return served_nodes;
             }
+
             self.pos = edge[1];
             self.time += length;
         }
@@ -333,23 +340,6 @@ pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: Soluti
         let (_, tour) = tsp::tsp_path(&tour_graph, env.pos, env.origin, sol_type);
         log::info!("Replan: current tour = {:?}", tour);
 
-        // if let Some(back) = back_until {
-        //     // here is a bug
-        //     if env.next_release.is_none() || env.next_release.unwrap() > back {
-        //         log::info!("Replan: follow tour and be back by {}", back);
-        //         let (abort, served) =
-        //             env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
-        //         env.remove_served_requests(&served);
-        //         if abort {
-        //             // if we cancel the tour
-        //             return env.time;
-        //         } else {
-        //             // we reached origin without cancel -> wait until back_until
-        //             env.time = back;
-        //             return back;
-        //         }
-        //     }
-        // }
         log::info!("Replan: follow tour until next release date");
         let served = env.follow_tour_until_next_release(TimedTour::from_tour(tour));
         env.remove_served_requests(&served);
@@ -361,12 +351,6 @@ pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: Soluti
 
         // wait until next release
         let wait_until = env.time.max(env.next_release.unwrap());
-        // if let Some(back) = back_until {
-        //     if wait_until > back {
-        //         env.time = back;
-        //         return back;
-        //     }
-        // }
         if wait_until > env.time {
             log::info!("Replan: wait until {}", wait_until);
         }
@@ -409,7 +393,7 @@ pub fn learning_augmented(
         back_until
     );
     smartstart(env, Some(back_until), sol_type);
-    
+
     assert_eq!(env.pos, env.origin);
     assert!(env.time <= back_until);
 
@@ -425,7 +409,7 @@ pub fn learning_augmented(
         .into_iter()
         .filter(|n| release_dates[n] > env.time)
         .collect();
-    env.add_requests(preds);
+    env.add_requests(preds.clone());
 
     // If the next release date is already due, get new requests
     if let Some(next_release) = env.next_release {
@@ -443,8 +427,25 @@ pub fn learning_augmented(
         env.next_release
     );
 
+    // Compute interesting time points
+    let mut time_points: Vec<usize> = preds.iter().map(|n| release_dates[n]).collect();
+    time_points.append(
+        &mut env
+            .instance
+            .release_dates()
+            .values()
+            .filter(|&r| *r > env.time)
+            .copied()
+            .collect::<Vec<usize>>(),
+    );
+    time_points.sort();
+    time_points.dedup();
+
+    let mut i = 0;
+
     // Phase (iii)
     loop {
+
         let start_time = env.time;
 
         let tour_graph = MetricView::from_metric_on_nodes(
@@ -463,7 +464,8 @@ pub fn learning_augmented(
         // compute tour
         let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
-        let (_, tour) = tsp::tsp_rd_path( // in this tour, the algorithm only waits until a requests arrives at the current point
+        let (_, tour) = tsp::tsp_rd_path(
+            // in this tour, the algorithm only waits until a requests arrives at the current point
             &tour_graph,
             &updated_release_dates,
             env.pos,
@@ -473,52 +475,15 @@ pub fn learning_augmented(
         );
         log::info!("Predict-Replan: current tour = {}", tour);
 
-
-
-
-
-
-
-
-
-
-
-
-
-        // 
-        // let mut r = env.next_release;
-        // 'req_search: while let Some(next_release) = r {
-        //     let (reqs, r_new) = env.instance.released_at(next_release);
-        //     for req in reqs {
-        //         let mut on_tour = false;
-        //         for (tour_node, tour_wait) in tour.nodes().iter().zip(tour.waiting_until()) {
-        //             if *tour_node == req {
-        //                 on_tour = true;
-        //             }
-        //             // is this right?
-        //             if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() + start_time < next_release
-        //             {
-        //                 log::info!(
-        //                     "Predict-Replan: req {} on current tour, but release later {} > {}",
-        //                     req,
-        //                     next_release,
-        //                     tour_wait.unwrap() + start_time
-        //                 );
-        //                 break 'req_search;
-        //             }
-        //         }
-        //         if !on_tour {
-        //             log::info!("Predict-Replan: req {} not found on current tour!", req);
-        //             break 'req_search;
-        //         }
-        //     }
-        //     r = r_new;
-        // }
-        // env.next_release = r;
-
-        log::info!("Predict-Replan: follow tour until next release date");
-        let served = env.follow_tour_until_next_release(tour);
-        env.remove_served_requests(&served);
+        log::info!("Predict-Replan: follow tour until next import time");
+        if i < time_points.len() {
+            i += 1;
+            let served = env.follow_tour_until_time(tour, time_points[i]);
+            env.remove_served_requests(&served);
+        } else {
+            env.follow_tour(tour);
+            return env.time;
+        }
 
         if env.next_release.is_none() {
             return env.time;

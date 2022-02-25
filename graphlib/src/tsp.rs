@@ -189,6 +189,7 @@ where
     var_by_edge
 }
 
+#[derive(Clone)]
 pub struct TimedTour {
     nodes: Vec<Node>,
     waiting_until: Vec<Option<usize>>,
