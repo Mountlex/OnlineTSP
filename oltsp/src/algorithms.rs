@@ -457,7 +457,6 @@ pub fn learning_augmented(
         assert!(
             tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
         );
-        assert!(env.virtual_node.is_none() || env.virtual_node == Some(env.pos));
 
         // update release date w.r.t. current time
         let updated_release_dates: FxHashMap<Node, usize> = release_dates
