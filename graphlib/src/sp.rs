@@ -342,7 +342,7 @@ where
         if path.is_file() {
             let file = File::open(path)?;
             let reader = BufReader::new(file);
-            let mut sp: ShortestPathsCache = bincode::deserialize_from(reader)?;
+            let sp: ShortestPathsCache = bincode::deserialize_from(reader)?;
             Ok(sp)
         } else {
             let sp = ShortestPathsCache::compute_all_graph_pairs_par(graph);

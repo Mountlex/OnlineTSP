@@ -1,5 +1,5 @@
-use graphlib::{Graph, Metric, Node, sp::ShortestPathsCache, Cost};
-use rand::prelude::SliceRandom;
+use graphlib::{Metric, Node, sp::ShortestPathsCache, Cost};
+
 use rand_distr::{Normal, Distribution};
 
 use crate::{Instance, NodeRequest, instance::Request};
@@ -14,7 +14,7 @@ pub fn gaussian_prediction(
 {
     let mut rng = rand::thread_rng();
 
-    let n_pred = if let Some(l_sigma) = length_sigma {
+    let _n_pred = if let Some(l_sigma) = length_sigma {
         let dist = Normal::new(instance.len() as f64, l_sigma).unwrap();
         let n = dist.sample(&mut rng).round();
         (n.round()).max(1.0) as usize

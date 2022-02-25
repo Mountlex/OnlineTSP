@@ -3,7 +3,7 @@ mod instance;
 mod prediction;
 
 use algorithms::Environment;
-use graphlib::{tsp::SolutionType, AdjListGraph, Node, SpMetricGraph, sp::ShortestPathsCache};
+use graphlib::{tsp::SolutionType, AdjListGraph, Node, sp::ShortestPathsCache};
 pub use instance::{instance_from_file, Instance, NodeRequest};
 pub use prediction::gaussian_prediction;
 

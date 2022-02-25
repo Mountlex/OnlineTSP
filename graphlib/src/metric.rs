@@ -1,10 +1,10 @@
 use std::fmt::Debug;
 
-use itertools::Itertools;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+use rayon::iter::{ParallelIterator};
 
 use crate::{
-    dijkstra::dijkstra_path, sp::ShortestPathsCache, AdjListGraph, Adjacency, Cost, Cut, CutIter,
+    sp::ShortestPathsCache, Adjacency, Cost, Cut, CutIter,
     Edge, Graph, GraphSize, Neighbors, Node, NodeIndex, NodeSet, Nodes, ShortestPaths, Weighted,
 };
 
