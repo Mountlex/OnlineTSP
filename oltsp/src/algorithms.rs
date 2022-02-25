@@ -114,15 +114,11 @@ where
     }
 
     fn follow_tour_until_next_release(&mut self, tour: TimedTour) -> Vec<Node> {
-        if let Some(next_release) = self.next_release {
-            self.follow_tour_until_time(tour, next_release)
-        } else {
-            self.follow_tour(tour.clone());
-            tour.nodes().to_vec()
-        }
+            self.follow_tour_until_time(tour, self.next_release)
+        
     }
 
-    fn follow_tour_until_time(&mut self, tour: TimedTour, until_time: usize) -> Vec<Node> {
+    fn follow_tour_until_time(&mut self, tour: TimedTour, until_time: Option<usize>) -> Vec<Node> {
         assert_eq!(Some(&self.pos), tour.nodes().first());
 
         // nodes that we visited until its release date in tour
@@ -137,9 +133,11 @@ where
 
         for (edge, source_wait) in tour.nodes().windows(2).zip(tour.waiting_until()) {
             if let Some(source_wait) = source_wait {
-                if *source_wait > until_time {
-                    self.time = until_time;
-                    return served_nodes;
+                if let Some(until_time) = until_time {
+                    if *source_wait > until_time {
+                        self.time = until_time;
+                        return served_nodes;
+                    }
                 }
 
                 // wait until source_wait before we traverse edge, if this time has not passed yet.
@@ -149,6 +147,7 @@ where
             // we leave edge[0]
             served_nodes.push(edge[0]);
 
+            if let Some(until_time) = until_time {
             // we cannot reach edge[1]
             if self.time + length > until_time {
                 if length == 0 {
@@ -182,12 +181,12 @@ where
                 if !self.current_nodes.contains(&pos) {
                     self.current_nodes.push(pos);
                 }
-
+            
                 self.pos = pos;
                 self.time = until_time;
                 return served_nodes;
             }
-
+        }
             self.pos = edge[1];
             self.time += length;
         }
@@ -478,7 +477,7 @@ pub fn learning_augmented(
         log::info!("Predict-Replan: follow tour until next import time");
         if i < time_points.len() {
             i += 1;
-            let served = env.follow_tour_until_time(tour, time_points[i]);
+            let served = env.follow_tour_until_time(tour, Some(time_points[i]));
             env.remove_served_requests(&served);
         } else {
             env.follow_tour(tour);
