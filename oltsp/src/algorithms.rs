@@ -499,7 +499,6 @@ pub fn learning_augmented(
         );
 
         if env.pos == env.origin && env.next_release.is_none() {
-            assert!(env.current_nodes.len() == 1 && env.current_nodes.first() == Some(&env.origin));
             return env.time;
         }
 
