@@ -413,7 +413,7 @@ pub fn learning_augmented(
 
     // If the next release date is already due, get new requests
     if let Some(next_release) = env.next_release {
-        if next_release < env.time {
+        if next_release <= env.time {
             let (new_requests, next_release) =
                 env.instance.released_between(next_release, env.time);
             env.add_requests(new_requests);
@@ -457,6 +457,7 @@ pub fn learning_augmented(
         assert!(
             tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
         );
+        assert!(env.virtual_node.is_none() || env.virtual_node == Some(env.pos));
 
         // update release date w.r.t. current time
         let updated_release_dates: FxHashMap<Node, usize> = release_dates
@@ -499,6 +500,7 @@ pub fn learning_augmented(
         );
 
         if env.pos == env.origin && env.next_release.is_none() {
+            assert!(env.current_nodes.len() == 1 && env.current_nodes.first() == Some(&env.origin));
             return env.time;
         }
 
