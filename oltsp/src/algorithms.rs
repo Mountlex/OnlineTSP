@@ -441,6 +441,7 @@ pub fn learning_augmented(
     time_points.dedup();
 
     let mut i = 0;
+    let start_phase_three = env.time;
 
     // Phase (iii)
     loop {
@@ -483,6 +484,8 @@ pub fn learning_augmented(
             env.follow_tour_until_time(tour, None);
             return env.time;
         }
+        assert!(env.time <= time_points[i-1]);
+        assert!(env.metric.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three);
 
         if env.pos == env.origin && env.next_release.is_none() {
             return env.time;
