@@ -150,13 +150,13 @@ where
             if let Some(until_time) = until_time {
             // we cannot reach edge[1]
             if self.time + length > until_time {
-                if length == 0 {
-                    self.time = until_time;
-                    return served_nodes;
-                }
+                
                 if self.time == until_time {
                     return served_nodes;
                 }
+
+                assert!(self.time <= until_time);
+
                 // we don't reach edge[1]
                 //log::trace!("Split edge {}-{} at {}, until_time={}, time={}", edge[0], edge[1], until_time - self.time, until_time, self.time);
 
