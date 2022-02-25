@@ -407,8 +407,9 @@ pub fn learning_augmented(
         back_until
     );
     smartstart(env, Some(back_until), sol_type);
+    
     assert_eq!(env.pos, env.origin);
-    //assert!(env.time <= back_until);
+    assert!(env.time <= back_until);
 
     // Phase (ii)
     env.time = env.time.max((opt_pred * alpha / 2.0).floor() as usize);
@@ -420,11 +421,11 @@ pub fn learning_augmented(
     let preds: Vec<Node> = prediction
         .distinct_nodes()
         .into_iter()
-        .filter(|n| release_dates[n] >= env.time)
+        .filter(|n| release_dates[n] > env.time)
         .collect();
     env.add_requests(preds);
 
-   
+    // If the next release date is already due, get new requests
     if let Some(next_release) = env.next_release {
         if next_release < env.time {
             let (new_requests, next_release) =
@@ -460,7 +461,7 @@ pub fn learning_augmented(
         // compute tour
         let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
-        let (_, tour) = tsp::tsp_rd_path(
+        let (_, tour) = tsp::tsp_rd_path( // in this tour, the algorithm only waits until a requests arrives at the current point
             &tour_graph,
             &updated_release_dates,
             env.pos,
@@ -470,36 +471,48 @@ pub fn learning_augmented(
         );
         log::info!("Predict-Replan: current tour = {}", tour);
 
+
+
+
+
+
+
+
+
+
+
+
+
         // 
-        let mut r = env.next_release;
-        'req_search: while let Some(next_release) = r {
-            let (reqs, r_new) = env.instance.released_at(next_release);
-            for req in reqs {
-                let mut on_tour = false;
-                for (tour_node, tour_wait) in tour.nodes().iter().zip(tour.waiting_until()) {
-                    if *tour_node == req {
-                        on_tour = true;
-                    }
-                    // is this right?
-                    if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() + start_time < next_release
-                    {
-                        log::info!(
-                            "Predict-Replan: req {} on current tour, but release later {} > {}",
-                            req,
-                            next_release,
-                            tour_wait.unwrap() + start_time
-                        );
-                        break 'req_search;
-                    }
-                }
-                if !on_tour {
-                    log::info!("Predict-Replan: req {} not found on current tour!", req);
-                    break 'req_search;
-                }
-            }
-            r = r_new;
-        }
-        env.next_release = r;
+        // let mut r = env.next_release;
+        // 'req_search: while let Some(next_release) = r {
+        //     let (reqs, r_new) = env.instance.released_at(next_release);
+        //     for req in reqs {
+        //         let mut on_tour = false;
+        //         for (tour_node, tour_wait) in tour.nodes().iter().zip(tour.waiting_until()) {
+        //             if *tour_node == req {
+        //                 on_tour = true;
+        //             }
+        //             // is this right?
+        //             if *tour_node == req && tour_wait.is_some() && tour_wait.unwrap() + start_time < next_release
+        //             {
+        //                 log::info!(
+        //                     "Predict-Replan: req {} on current tour, but release later {} > {}",
+        //                     req,
+        //                     next_release,
+        //                     tour_wait.unwrap() + start_time
+        //                 );
+        //                 break 'req_search;
+        //             }
+        //         }
+        //         if !on_tour {
+        //             log::info!("Predict-Replan: req {} not found on current tour!", req);
+        //             break 'req_search;
+        //         }
+        //     }
+        //     r = r_new;
+        // }
+        // env.next_release = r;
 
         log::info!("Predict-Replan: follow tour until next release date");
         let served = env.follow_tour_until_next_release(tour);
