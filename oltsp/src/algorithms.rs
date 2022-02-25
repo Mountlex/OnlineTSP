@@ -114,8 +114,7 @@ where
     }
 
     fn follow_tour_until_next_release(&mut self, tour: TimedTour) -> Vec<Node> {
-            self.follow_tour_until_time(tour, self.next_release)
-        
+        self.follow_tour_until_time(tour, self.next_release)
     }
 
     fn follow_tour_until_time(&mut self, tour: TimedTour, until_time: Option<usize>) -> Vec<Node> {
@@ -148,48 +147,47 @@ where
             served_nodes.push(edge[0]);
 
             if let Some(until_time) = until_time {
-            // we cannot reach edge[1]
-            if self.time + length > until_time {
-                
-                if self.time == until_time {
+                // we cannot reach edge[1]
+                if self.time + length > until_time {
+                    if self.time == until_time {
+                        return served_nodes;
+                    }
+
+                    assert!(self.time <= until_time);
+
+                    // we don't reach edge[1]
+                    //log::trace!("Split edge {}-{} at {}, until_time={}, time={}", edge[0], edge[1], until_time - self.time, until_time, self.time);
+
+                    let metric_graph = MetricView::from_metric_on_nodes(
+                        self.current_nodes.clone(),
+                        self.metric,
+                        self.virtual_node,
+                        self.buffer.clone(),
+                    );
+
+                    assert!(metric_graph.distance(self.origin, edge[0]).get_usize() <= self.time);
+
+                    let (pos, buffer) = metric_graph.split_virtual_edge(
+                        edge[0],
+                        edge[1],
+                        Cost::new(until_time - self.time),
+                        &mut self.base_graph,
+                    );
+                    if buffer.is_some() {
+                        assert!(buffer.as_ref().unwrap().get(self.origin).get_usize() <= until_time);
+                        self.virtual_node = Some(pos);
+                        self.buffer = buffer;
+                    }
+
+                    if !self.current_nodes.contains(&pos) {
+                        self.current_nodes.push(pos);
+                    }
+
+                    self.pos = pos;
+                    self.time = until_time;
                     return served_nodes;
                 }
-
-                assert!(self.time <= until_time);
-
-                // we don't reach edge[1]
-                //log::trace!("Split edge {}-{} at {}, until_time={}, time={}", edge[0], edge[1], until_time - self.time, until_time, self.time);
-
-                let metric_graph = MetricView::from_metric_on_nodes(
-                    self.current_nodes.clone(),
-                    self.metric,
-                    self.virtual_node,
-                    self.buffer.clone(),
-                );
-
-                let (pos, buffer) = metric_graph.split_virtual_edge(
-                    edge[0],
-                    edge[1],
-                    Cost::new(until_time - self.time),
-                    &mut self.base_graph,
-                );
-                if buffer.is_some() {
-                    assert!(buffer.as_ref().unwrap().get(self.origin).get_usize() <= self.time);
-                    self.virtual_node = Some(pos);
-                    self.buffer = buffer;
-                }
-
-                
-
-                if !self.current_nodes.contains(&pos) {
-                    self.current_nodes.push(pos);
-                }
-            
-                self.pos = pos;
-                self.time = until_time;
-                return served_nodes;
             }
-        }
             self.pos = edge[1];
             self.time += length;
         }
@@ -448,7 +446,6 @@ pub fn learning_augmented(
 
     // Phase (iii)
     loop {
-
         let start_time = env.time;
 
         let tour_graph = MetricView::from_metric_on_nodes(
@@ -457,14 +454,15 @@ pub fn learning_augmented(
             env.virtual_node,
             env.buffer.clone(),
         );
-        assert!(tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three);
+        assert!(
+            tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
+        );
 
         // update release date w.r.t. current time
         let updated_release_dates: FxHashMap<Node, usize> = release_dates
             .iter()
             .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
             .collect();
-
 
         // compute tour
         let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
@@ -489,14 +487,16 @@ pub fn learning_augmented(
             env.follow_tour_until_time(tour, None);
             return env.time;
         }
-        assert!(env.time <= time_points[i-1]);
+        assert!(env.time <= time_points[i - 1]);
         let tour_graph = MetricView::from_metric_on_nodes(
             env.current_nodes.clone(),
             env.metric,
             env.virtual_node,
             env.buffer.clone(),
         );
-        assert!(tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three);
+        assert!(
+            tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
+        );
 
         if env.pos == env.origin && env.next_release.is_none() {
             return env.time;
