@@ -498,7 +498,7 @@ pub fn learning_augmented(
             tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
         );
 
-        if env.pos == env.origin && env.next_release.is_none() {
+        if env.pos == env.origin && env.next_release.is_none() { // more conditions?
             return env.time;
         }
 
