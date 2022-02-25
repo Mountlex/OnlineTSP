@@ -32,7 +32,7 @@ pub fn graphml_import(
                         }) {
                             let real = length_node.text().unwrap().trim().parse::<f64>().unwrap();
                             let cost = if let Some(scale) = scale {
-                                Cost::new((real.ceil() / (scale as f64)) as usize)
+                                Cost::new((real.ceil() / (scale as f64)).floor() as usize)
                             } else {
                                 Cost::new(real.ceil() as usize)
                             };

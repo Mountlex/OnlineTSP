@@ -63,7 +63,7 @@ fn main() -> Result<()> {
     match args {
         Cli::Exp1(exp) => {
             log::info!("Importing graph from file...");
-            let graph = graphml_import(exp.graph, None, None);
+            let graph = graphml_import(exp.graph, None, Some(exp.scale));
             log::info!("    ...success!");
 
             log::info!("Importing metric from file...");
