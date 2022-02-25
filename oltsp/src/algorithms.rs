@@ -275,6 +275,8 @@ pub fn smartstart(
                 }
             }
             env.follow_tour(TimedTour::from_tour(tour.clone()));
+            assert_eq!(env.time, start_time + cost.get_usize());
+            assert_eq!(env.pos, env.origin);
             env.remove_served_requests(&tour);
         } else {
             // sleep
