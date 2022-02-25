@@ -480,7 +480,7 @@ pub fn learning_augmented(
             i += 1;
             env.remove_served_requests(&served);
         } else {
-            env.follow_tour(tour);
+            env.follow_tour_until_time(tour, None);
             return env.time;
         }
 
