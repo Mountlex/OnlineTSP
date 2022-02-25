@@ -2,9 +2,9 @@ use anyhow::Result;
 use clap::{Args, Parser};
 use csv::Writer;
 use graphlib::{graphml::graphml_import, SpMetricGraph, sp, Nodes, Node, tsp, Metric};
-use oltsp::{ignore, instance_from_file, replan, learning_augmented, gaussian_prediction, smartstart, NodeRequest, Instance};
+use oltsp::{ignore, instance_from_file, replan, learning_augmented, gaussian_prediction, smartstart, NodeRequest};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rustc_hash::FxHashMap;
+
 use serde::Serialize;
 use std::path::PathBuf;
 
