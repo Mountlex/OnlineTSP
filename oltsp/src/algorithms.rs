@@ -485,7 +485,7 @@ pub fn learning_augmented(
             return env.time;
         }
         assert!(env.time <= time_points[i-1]);
-        assert!(env.metric.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three);
+        assert!(tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three);
 
         if env.pos == env.origin && env.next_release.is_none() {
             return env.time;
