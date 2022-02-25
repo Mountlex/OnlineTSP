@@ -485,6 +485,12 @@ pub fn learning_augmented(
             return env.time;
         }
         assert!(env.time <= time_points[i-1]);
+        let tour_graph = MetricView::from_metric_on_nodes(
+            env.current_nodes.clone(),
+            env.metric,
+            env.virtual_node,
+            env.buffer.clone(),
+        );
         assert!(tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three);
 
         if env.pos == env.origin && env.next_release.is_none() {
