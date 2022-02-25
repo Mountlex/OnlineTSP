@@ -58,8 +58,9 @@ impl MetricView<'_, ShortestPathsCache> {
         base_graph: &mut AdjListGraph,
     ) -> (Node, Option<DistanceCache>) {
         let (path_cost, path) = dijkstra_path(base_graph, virtual_source, virtual_sink);
+        assert_eq!(self.distance(virtual_sink, virtual_source), path_cost);
         assert!(at > Cost::new(0));
-        //assert!(at < path_cost);
+        assert!(at < path_cost);
         assert_eq!(path.first().copied(), Some(virtual_source));
         assert_eq!(path.last().copied(), Some(virtual_sink));
 
