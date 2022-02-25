@@ -460,16 +460,19 @@ where
     assert_eq!(tour.last(), start_node);
 
     let mut nodes = tour.nodes().to_vec();
-    let cost = tour.cost();
+    
     if start_node != end_node {
         nodes.retain(|n| *n != end_node);
         nodes.remove(nodes.len() - 1);
         nodes.push(end_node);
 
-        (cost, nodes)
-    } else {
-        (cost, nodes)
+    } 
+
+    let mut cost = Cost::new(0);
+    for edge in nodes.windows(2) {
+        cost += graph.distance(edge[0], edge[1]);
     }
+    (cost, nodes)
 }
 
 #[cfg(test)]
