@@ -174,9 +174,12 @@ where
                     &mut self.base_graph,
                 );
                 if buffer.is_some() {
+                    assert!(buffer.as_ref().unwrap().get(self.origin).get_usize() <= self.time);
                     self.virtual_node = Some(pos);
                     self.buffer = buffer;
                 }
+
+                
 
                 if !self.current_nodes.contains(&pos) {
                     self.current_nodes.push(pos);
