@@ -1,8 +1,10 @@
 use std::fmt::Debug;
 
 use crate::{
-    Adjacency, Cost, Cut, CutIter, Edge, Graph, GraphSize, Metric, Neighbors, Node, NodeIndex,
-    NodeSet, Nodes, Weighted, sp::{DistanceCache, ShortestPathsCache}, dijkstra::dijkstra_path, AdjListGraph,
+    dijkstra::dijkstra_path,
+    sp::{DistanceCache, ShortestPathsCache},
+    AdjListGraph, Adjacency, Cost, Cut, CutIter, Edge, Graph, GraphSize, Metric, Neighbors, Node,
+    NodeIndex, NodeSet, Nodes, Weighted,
 };
 
 #[derive(Clone, Debug)]
@@ -18,7 +20,12 @@ impl<'a, M> MetricView<'a, M>
 where
     M: Metric,
 {
-    pub fn from_metric_on_nodes(mut nodes: Vec<Node>, metric: &'a M, virtual_node: Option<Node>, buffer: Option<DistanceCache>) -> Self {
+    pub fn from_metric_on_nodes(
+        mut nodes: Vec<Node>,
+        metric: &'a M,
+        virtual_node: Option<Node>,
+        buffer: Option<DistanceCache>,
+    ) -> Self {
         if let Some(v_node) = virtual_node {
             if !nodes.contains(&v_node) {
                 nodes.push(v_node);
@@ -30,7 +37,7 @@ where
             node_index,
             metric,
             virtual_node,
-            buffer
+            buffer,
         }
     }
 
@@ -45,8 +52,6 @@ where
         self.nodes.retain(|n| *n != node);
         self.node_index = NodeIndex::init(&self.nodes);
     }
-
-    
 }
 
 impl MetricView<'_, ShortestPathsCache> {
@@ -74,13 +79,20 @@ impl MetricView<'_, ShortestPathsCache> {
                 return (edge[1], None);
             } else if walked + edge_cost > at {
                 let new_node = base_graph.split_edge_at(edge[0], edge[1], at - walked);
-                
+
                 if let Some(virtual_node) = self.virtual_node {
                     base_graph.remove_virtual_node(virtual_node);
                 }
 
-                let buffer = self.metric.split_edge_to_buffer( edge[0], edge[1], at - walked, edge_cost, self.virtual_node, self.buffer.clone());
-                
+                let buffer = self.metric.split_edge_to_buffer(
+                    edge[0],
+                    edge[1],
+                    at - walked,
+                    edge_cost,
+                    self.virtual_node,
+                    self.buffer.clone(),
+                );
+
                 return (new_node, Some(buffer));
             }
             walked += edge_cost;
@@ -89,7 +101,6 @@ impl MetricView<'_, ShortestPathsCache> {
         panic!("Could not split edge!")
     }
 }
-
 
 impl<M> Metric for MetricView<'_, M>
 where

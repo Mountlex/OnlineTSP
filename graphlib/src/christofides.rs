@@ -12,13 +12,13 @@ use lp_modeler::solvers::{SolverTrait, Status};
 use rand::seq::SliceRandom;
 use std::io::{BufRead, Write};
 
+use crate::dijkstra::shortest_paths_to;
 use crate::metric::Metric;
 use crate::mst::prims_tree;
 use crate::{
-    cost::Cost, AdjListGraph, Adjacency, Edge, Graph,
-    GraphSize, MultiGraph, Node, NodeSet, TotalWeight, Tour,
+    cost::Cost, AdjListGraph, Adjacency, Edge, Graph, GraphSize, MultiGraph, Node, NodeSet,
+    TotalWeight, Tour,
 };
-use crate::{dijkstra::shortest_paths_to};
 use crate::{Nodes, Weighted};
 
 fn compute_odd_vertices<'a, G>(graph: &'a G) -> Vec<Node>
@@ -67,7 +67,7 @@ where
 
     let mut nodes = odd_vertices.to_owned();
     if nodes.is_empty() {
-        return vec![]
+        return vec![];
     }
 
     nodes.sort();
@@ -413,7 +413,6 @@ where
         }
     }
 
-
     let (mst, _) = prims_tree(graph);
     let odd_vertices = compute_odd_vertices(&mst);
 
@@ -460,13 +459,12 @@ where
     assert_eq!(tour.last(), start_node);
 
     let mut nodes = tour.nodes().to_vec();
-    
+
     if start_node != end_node {
         nodes.retain(|n| *n != end_node);
         nodes.remove(nodes.len() - 1);
         nodes.push(end_node);
-
-    } 
+    }
 
     let mut cost = Cost::new(0);
     for edge in nodes.windows(2) {

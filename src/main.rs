@@ -1,8 +1,11 @@
 use anyhow::Result;
 use clap::{Args, Parser};
 use csv::Writer;
-use graphlib::{graphml::graphml_import, SpMetricGraph, sp, Nodes, Node, tsp, Metric};
-use oltsp::{ignore, instance_from_file, replan, learning_augmented, gaussian_prediction, smartstart, NodeRequest};
+use graphlib::{graphml::graphml_import, sp, tsp, Metric, Node, Nodes, SpMetricGraph};
+use oltsp::{
+    gaussian_prediction, ignore, instance_from_file, learning_augmented, replan, smartstart,
+    NodeRequest,
+};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use serde::Serialize;
@@ -18,11 +21,7 @@ struct Exp1 {
     #[clap(parse(from_os_str), value_name = "INSTANCE_DIR")]
     instance_set: PathBuf,
 
-    #[clap(
-        long,
-        parse(from_os_str),
-        default_value = "data/osm/Manhattan.graphml"
-    )]
+    #[clap(long, parse(from_os_str), default_value = "data/osm/Manhattan.graphml")]
     graph: PathBuf,
 
     #[clap(long = "wc-rd")]
@@ -89,7 +88,11 @@ fn main() -> Result<()> {
 
                     if exp.wc_rd {
                         let metric_graph = SpMetricGraph::from_metric_on_nodes(nodes, sp.clone());
-                        let (_,tour) = tsp::tsp_tour(&metric_graph, start_node, graphlib::tsp::SolutionType::Approx);
+                        let (_, tour) = tsp::tsp_tour(
+                            &metric_graph,
+                            start_node,
+                            graphlib::tsp::SolutionType::Approx,
+                        );
                         let mut reqs: Vec<(NodeRequest, usize)> = vec![];
                         let mut t = 0;
                         for edge in tour.windows(2) {
@@ -98,10 +101,13 @@ fn main() -> Result<()> {
                         }
                         instance = reqs.into()
                     }
-                    
 
                     log::info!("Computing optimal solution for {:?}...", file.file_name());
-                    let (opt, tour) = instance.optimal_solution(start_node, &sp, graphlib::tsp::SolutionType::Approx);
+                    let (opt, tour) = instance.optimal_solution(
+                        start_node,
+                        &sp,
+                        graphlib::tsp::SolutionType::Approx,
+                    );
                     log::info!("    ...success. Optimal tour = {}", tour);
 
                     let base_nodes: Vec<Node> = graph.nodes().collect();
@@ -121,7 +127,7 @@ fn main() -> Result<()> {
                         start_node,
                         graphlib::tsp::SolutionType::Approx,
                     ) as u64;
-                    
+
                     let t_smart = smartstart(
                         &graph,
                         &sp,
@@ -130,54 +136,58 @@ fn main() -> Result<()> {
                         graphlib::tsp::SolutionType::Approx,
                     ) as u64;
 
-                    let results: Vec<Exp1Result> = (0..exp.num_sigmas).into_iter().flat_map(|sigma_num| {
-                        let sigma = exp.base_sigma.powi(sigma_num) - 1.0;
-                        let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, None);
-                        let mut results: Vec<Exp1Result> = vec![];
+                    let results: Vec<Exp1Result> = (0..exp.num_sigmas)
+                        .into_iter()
+                        .flat_map(|sigma_num| {
+                            let sigma = exp.base_sigma.powi(sigma_num) - 1.0;
+                            let pred =
+                                gaussian_prediction(&instance, &sp, &base_nodes, sigma, None);
+                            let mut results: Vec<Exp1Result> = vec![];
 
-                        [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {
-                            results.push(Exp1Result {
-                                name: "pred".into(),
-                                param: *alpha,
-                                opt: opt.get_usize() as u64,
-                                alg: learning_augmented(
-                                    &graph,
-                                    &sp,
-                                    instance.clone(),
-                                    start_node,
-                                    *alpha,
-                                    pred.clone(),
-                                    graphlib::tsp::SolutionType::Approx,
-                                ) as u64,
-                                sigma
+                            [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {
+                                results.push(Exp1Result {
+                                    name: "pred".into(),
+                                    param: *alpha,
+                                    opt: opt.get_usize() as u64,
+                                    alg: learning_augmented(
+                                        &graph,
+                                        &sp,
+                                        instance.clone(),
+                                        start_node,
+                                        *alpha,
+                                        pred.clone(),
+                                        graphlib::tsp::SolutionType::Approx,
+                                    ) as u64,
+                                    sigma,
+                                });
                             });
-                        });
 
-                        results.push(Exp1Result {
-                            name: "ignore".into(),
-                            param: 0.0,
-                            opt: opt.get_usize() as u64,
-                            alg: t_ignore,
-                            sigma,
-                        });
-                        results.push(Exp1Result {
-                            name: "replan".into(),
-                            param: 0.0,
-                            opt: opt.get_usize() as u64,
-                            alg: t_replan,
-                            sigma
-                        });
-                        results.push(Exp1Result {
-                            name: "smart".into(),
-                            param: 0.0,
-                            opt: opt.get_usize() as u64,
-                            alg: t_smart,
-                            sigma
-                        });
-                        results
-                    }).collect(); 
+                            results.push(Exp1Result {
+                                name: "ignore".into(),
+                                param: 0.0,
+                                opt: opt.get_usize() as u64,
+                                alg: t_ignore,
+                                sigma,
+                            });
+                            results.push(Exp1Result {
+                                name: "replan".into(),
+                                param: 0.0,
+                                opt: opt.get_usize() as u64,
+                                alg: t_replan,
+                                sigma,
+                            });
+                            results.push(Exp1Result {
+                                name: "smart".into(),
+                                param: 0.0,
+                                opt: opt.get_usize() as u64,
+                                alg: t_smart,
+                                sigma,
+                            });
+                            results
+                        })
+                        .collect();
 
-                results
+                    results
                 })
                 .collect();
             export(&exp.output, results)?

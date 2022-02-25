@@ -174,7 +174,9 @@ where
                         &mut self.base_graph,
                     );
                     if buffer.is_some() {
-                        assert!(buffer.as_ref().unwrap().get(self.origin).get_usize() <= until_time);
+                        assert!(
+                            buffer.as_ref().unwrap().get(self.origin).get_usize() <= until_time
+                        );
                         self.virtual_node = Some(pos);
                         self.buffer = buffer;
                     }
@@ -498,7 +500,8 @@ pub fn learning_augmented(
             tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
         );
 
-        if env.pos == env.origin && env.next_release.is_none() { // more conditions?
+        if env.pos == env.origin && env.next_release.is_none() {
+            // more conditions?
             return env.time;
         }
 

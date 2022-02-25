@@ -2,10 +2,7 @@ use std::path::PathBuf;
 
 use crate::{cost::Cost, AdjListGraph};
 
-pub fn graphml_import(
-    filename: PathBuf,
-    max_nodes: Option<usize>,
-) -> AdjListGraph {
+pub fn graphml_import(filename: PathBuf, max_nodes: Option<usize>) -> AdjListGraph {
     let mut graph = AdjListGraph::new();
 
     let text = std::fs::read_to_string(filename).unwrap();
@@ -30,9 +27,8 @@ pub fn graphml_import(
                             c.tag_name().name() == "data" && c.attribute("key") == Some(length_key)
                         }) {
                             let real = length_node.text().unwrap().trim().parse::<f64>().unwrap();
-                            let cost = 
-                                Cost::new(real.ceil() as usize);
-                            
+                            let cost = Cost::new(real.ceil() as usize);
+
                             graph.add_edge(source.into(), sink.into(), cost);
                         }
                     }

@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use super::Node;
 

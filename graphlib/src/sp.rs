@@ -1,8 +1,12 @@
-use std::{path::PathBuf, io::{BufReader, BufWriter}, fs::File};
 use anyhow::Result;
-use ndarray::{Array2, ArrayView, Array1};
+use ndarray::{Array1, Array2, ArrayView};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+    path::PathBuf,
+};
 
 use crate::{
     dijkstra::shortest_paths_to, Cost, Graph, Node, NodeIndex, Nodes, ShortestPaths, Weighted,
@@ -52,7 +56,7 @@ impl DistanceCache {
             d[i] = PathCost::Path(0.into());
         }
 
-         DistanceCache {
+        DistanceCache {
             vector: d,
             index: node_index,
         }
@@ -65,7 +69,6 @@ impl DistanceCache {
     }
 
     pub fn get_by_index(&self, idx: usize) -> Cost {
-      
         if let PathCost::Path(cost) = self.vector[[idx]] {
             cost
         } else {
@@ -81,7 +84,6 @@ impl DistanceCache {
     pub fn set_by_index(&mut self, idx: usize, cost: Cost) {
         self.vector[[idx]] = PathCost::Path(cost);
     }
-  
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,9 +94,11 @@ pub struct ShortestPathsCache {
 
 impl ShortestPathsCache {
     pub fn scale(&mut self, scale: usize) {
-        self.matrix.map_inplace(|entry| *entry = match entry {
-            PathCost::Unreachable => PathCost::Unreachable,
-            PathCost::Path(cost) => PathCost::Path(*cost / scale)
+        self.matrix.map_inplace(|entry| {
+            *entry = match entry {
+                PathCost::Unreachable => PathCost::Unreachable,
+                PathCost::Path(cost) => PathCost::Path(*cost / scale),
+            }
         })
     }
 
@@ -115,8 +119,6 @@ impl ShortestPathsCache {
             index: NodeIndex::init(&nodes),
         }
     }
-
-    
 
     pub fn add_node<'a, G>(&mut self, new_node: Node, graph: &'a G)
     where
@@ -142,28 +144,35 @@ impl ShortestPathsCache {
         }
     }
 
-    pub fn split_edge_to_buffer(&self, source: Node, sink: Node, at: Cost, edge_cost: Cost, virtual_node: Option<Node>, buffer: Option<DistanceCache>) -> DistanceCache {
+    pub fn split_edge_to_buffer(
+        &self,
+        source: Node,
+        sink: Node,
+        at: Cost,
+        edge_cost: Cost,
+        virtual_node: Option<Node>,
+        buffer: Option<DistanceCache>,
+    ) -> DistanceCache {
         let mut d = DistanceCache::empty_from_index(self.index.clone());
         let n = self.index.num_nodes();
 
-       
         for idx in 0..n {
             if Some(source) == virtual_node {
                 let sink_idx = self.index[&sink];
                 let p1 = buffer.as_ref().unwrap().get_by_index(idx) + at;
                 let p2 = self.get_by_index(idx, sink_idx) + edge_cost - at;
-                d.set_by_index(idx,  Cost::new(p1.get_usize().min(p2.get_usize())));
+                d.set_by_index(idx, Cost::new(p1.get_usize().min(p2.get_usize())));
             } else if Some(sink) == virtual_node {
                 let source_idx = self.index[&source];
                 let p1 = self.get_by_index(idx, source_idx) + at;
                 let p2 = buffer.as_ref().unwrap().get_by_index(idx) + edge_cost - at;
-                d.set_by_index(idx,  Cost::new(p1.get_usize().min(p2.get_usize())));
+                d.set_by_index(idx, Cost::new(p1.get_usize().min(p2.get_usize())));
             } else {
                 let source_idx = self.index[&source];
                 let sink_idx = self.index[&sink];
                 let p1 = self.get_by_index(idx, source_idx) + at;
                 let p2 = self.get_by_index(idx, sink_idx) + edge_cost - at;
-                d.set_by_index(idx,  Cost::new(p1.get_usize().min(p2.get_usize())));
+                d.set_by_index(idx, Cost::new(p1.get_usize().min(p2.get_usize())));
             }
         }
         d
@@ -209,8 +218,6 @@ impl ShortestPathsCache {
 
         sp
     }
-
-
 
     pub fn compute_all_graph_pairs_par<'a, G>(graph: &'a G) -> Self
     where
@@ -334,22 +341,20 @@ impl ShortestPathsCache {
     }
 }
 
-
-
 pub fn load_or_compute<'a, G>(path: &PathBuf, graph: &'a G) -> Result<ShortestPathsCache>
 where
-    G: Graph<'a> + Sync, {
-        if path.is_file() {
-            let file = File::open(path)?;
-            let reader = BufReader::new(file);
-            let sp: ShortestPathsCache = bincode::deserialize_from(reader)?;
-            Ok(sp)
-        } else {
-            let sp = ShortestPathsCache::compute_all_graph_pairs_par(graph);
-            let file = File::create(path)?;
-            let writer = BufWriter::new(file);
-            bincode::serialize_into(writer, &sp)?;
-            Ok(sp)
-        }
+    G: Graph<'a> + Sync,
+{
+    if path.is_file() {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let sp: ShortestPathsCache = bincode::deserialize_from(reader)?;
+        Ok(sp)
+    } else {
+        let sp = ShortestPathsCache::compute_all_graph_pairs_par(graph);
+        let file = File::create(path)?;
+        let writer = BufWriter::new(file);
+        bincode::serialize_into(writer, &sp)?;
+        Ok(sp)
     }
-
+}

@@ -56,21 +56,17 @@ impl AdjListGraph {
         return new_node;
     }
 
-    pub fn remove_virtual_node(
-        &mut self,
-        virtual_node: Node,
-    ) {
+    pub fn remove_virtual_node(&mut self, virtual_node: Node) {
         let neighbors: Vec<Node> = self.neighbors(virtual_node).collect();
         assert_eq!(neighbors.len(), 2);
-        let edge_cost = self.edge_cost(neighbors[0], virtual_node).unwrap() + self.edge_cost(neighbors[1], virtual_node).unwrap();
+        let edge_cost = self.edge_cost(neighbors[0], virtual_node).unwrap()
+            + self.edge_cost(neighbors[1], virtual_node).unwrap();
         for &neighbor in &neighbors {
             self.remove_edge(virtual_node, neighbor);
         }
         self.add_edge(neighbors[0], neighbors[1], edge_cost);
         self.adj_list.remove(&virtual_node);
     }
-
-   
 
     fn add_edge_raw(&mut self, edge: Edge) {
         let adj_source = self.adj_list.entry(edge.source()).or_default();

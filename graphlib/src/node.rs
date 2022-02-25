@@ -5,7 +5,7 @@ use std::{
     iter::FromIterator,
 };
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// A node in a graph. It is identified by an unique unsigned integer.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

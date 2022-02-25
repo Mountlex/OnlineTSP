@@ -2,11 +2,11 @@ use std::{error::Error, path::PathBuf};
 
 use graphlib::{
     mst,
-    tsp::{SolutionType, TimedTour, self},
-    Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, Node, Nodes, Weighted, MetricView,
+    tsp::{self, SolutionType, TimedTour},
+    Adjacency, Cost, Edge, GraphSize, Metric, MetricGraph, MetricView, Node, Nodes, Weighted,
 };
-use std::fmt::Debug;
 use rustc_hash::FxHashMap;
+use std::fmt::Debug;
 
 pub trait Request {
     fn node(&self) -> Node;
@@ -123,9 +123,10 @@ where
         start_node: Node,
         metric: &M,
         sol_type: SolutionType,
-    ) -> (Cost, TimedTour) where M: Metric + Clone + Debug {
-
-
+    ) -> (Cost, TimedTour)
+    where
+        M: Metric + Clone + Debug,
+    {
         // update release date w.r.t. current time
         let mut distinct_release_dates = FxHashMap::<Node, usize>::default();
         for (n, r) in &self.requests {
@@ -137,12 +138,7 @@ where
         nodes.sort();
         nodes.dedup();
 
-        let tour_graph = MetricView::from_metric_on_nodes(
-            nodes,
-            metric,
-            None,
-            None,
-        );
+        let tour_graph = MetricView::from_metric_on_nodes(nodes, metric, None, None);
 
         let max_rd: usize = distinct_release_dates.values().copied().max().unwrap();
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
@@ -153,12 +149,12 @@ where
             max_t,
             sol_type,
         )
-        }
-        
-        //pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> Cost where M: Metric + Clone + Debug {
-        //    let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
-        //approx
-        //}
+    }
+
+    //pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> Cost where M: Metric + Clone + Debug {
+    //    let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
+    //approx
+    //}
 }
 
 struct InstanceGraph<'a, M> {
@@ -271,7 +267,7 @@ pub fn instance_from_file(filename: &PathBuf) -> Result<Instance<NodeRequest>, B
 
 #[cfg(test)]
 mod test_instance {
-    use graphlib::{AdjListGraph, sp::ShortestPathsCache};
+    use graphlib::{sp::ShortestPathsCache, AdjListGraph};
 
     use super::*;
 

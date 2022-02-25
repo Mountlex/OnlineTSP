@@ -1,5 +1,3 @@
-
-
 use rustc_hash::FxHashMap;
 
 use crate::{Cost, Weighted};

@@ -1,11 +1,10 @@
 use std::fmt::Debug;
 
-
-use rayon::iter::{ParallelIterator};
+use rayon::iter::ParallelIterator;
 
 use crate::{
-    sp::ShortestPathsCache, Adjacency, Cost, Cut, CutIter,
-    Edge, Graph, GraphSize, Neighbors, Node, NodeIndex, NodeSet, Nodes, ShortestPaths, Weighted,
+    sp::ShortestPathsCache, Adjacency, Cost, Cut, CutIter, Edge, Graph, GraphSize, Neighbors, Node,
+    NodeIndex, NodeSet, Nodes, ShortestPaths, Weighted,
 };
 
 pub trait Metric {
@@ -75,7 +74,10 @@ pub struct MetricGraph<M> {
     metric: M,
 }
 
-impl <M> MetricGraph<M> where M: Metric + Clone + Debug {
+impl<M> MetricGraph<M>
+where
+    M: Metric + Clone + Debug,
+{
     pub fn from_metric_on_nodes(nodes: Vec<Node>, metric: M) -> Self {
         let node_index = NodeIndex::init(&nodes);
         Self {
@@ -102,8 +104,6 @@ impl SpMetricGraph {
         }
     }
 
-    
-
     pub fn from_graph<'a, G>(graph: &'a G) -> Self
     where
         G: Graph<'a> + Sync,
@@ -122,8 +122,6 @@ impl SpMetricGraph {
     pub fn into_metric(self) -> ShortestPathsCache {
         self.metric
     }
-
-    
 }
 
 impl<M> Weighted for MetricGraph<M>
@@ -300,6 +298,4 @@ mod test_metric_graph {
 
         assert_eq!(Cost::new(6), metric_graph.distance(4.into(), 6.into()));
     }
-
-
 }
