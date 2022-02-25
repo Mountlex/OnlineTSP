@@ -454,12 +454,14 @@ pub fn learning_augmented(
             env.virtual_node,
             env.buffer.clone(),
         );
+        assert!(tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three);
 
         // update release date w.r.t. current time
         let updated_release_dates: FxHashMap<Node, usize> = release_dates
             .iter()
             .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
             .collect();
+
 
         // compute tour
         let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
