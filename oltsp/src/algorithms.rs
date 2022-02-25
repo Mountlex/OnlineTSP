@@ -476,8 +476,8 @@ pub fn learning_augmented(
 
         log::info!("Predict-Replan: follow tour until next import time");
         if i < time_points.len() {
-            i += 1;
             let served = env.follow_tour_until_time(tour, Some(time_points[i]));
+            i += 1;
             env.remove_served_requests(&served);
         } else {
             env.follow_tour(tour);
