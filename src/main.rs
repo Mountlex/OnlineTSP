@@ -63,11 +63,11 @@ fn main() -> Result<()> {
     match args {
         Cli::Exp1(exp) => {
             log::info!("Importing graph from file...");
-            let graph = graphml_import(exp.graph, None, Some(exp.scale));
+            let graph = graphml_import(exp.graph, None);
             log::info!("    ...success!");
 
             log::info!("Importing metric from file...");
-            let sp = sp::load_or_compute(&"data/osm/manhattan.dat".into(), &graph, exp.scale)?;
+            let sp = sp::load_or_compute(&"data/osm/manhattan.dat".into(), &graph)?;
             log::info!("    ...success!");
 
             let paths: Vec<std::fs::DirEntry> = std::fs::read_dir(exp.instance_set)?
@@ -80,6 +80,7 @@ fn main() -> Result<()> {
                     let start_node = 1.into();
                     log::info!("Loading instance from {:?}", file.path());
                     let mut instance = instance_from_file(&file.path()).unwrap();
+                    instance.scale_rd(exp.scale);
 
                     let mut nodes = instance.distinct_nodes();
                     if !nodes.contains(&start_node) {

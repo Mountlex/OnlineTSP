@@ -55,6 +55,10 @@ impl<R> Instance<R>
 where
     R: Clone + Request,
 {
+    pub fn scale_rd(&mut self, scale: usize) {
+        self.requests.iter_mut().for_each(|(_, r)| *r = *r * scale)
+    }
+
     pub fn reqs(&self) -> &Vec<(R, usize)> {
         &self.requests
     }

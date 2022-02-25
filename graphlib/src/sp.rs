@@ -336,14 +336,13 @@ impl ShortestPathsCache {
 
 
 
-pub fn load_or_compute<'a, G>(path: &PathBuf, graph: &'a G, scale: usize) -> Result<ShortestPathsCache>
+pub fn load_or_compute<'a, G>(path: &PathBuf, graph: &'a G) -> Result<ShortestPathsCache>
 where
     G: Graph<'a> + Sync, {
         if path.is_file() {
             let file = File::open(path)?;
             let reader = BufReader::new(file);
             let mut sp: ShortestPathsCache = bincode::deserialize_from(reader)?;
-            sp.scale(scale);
             Ok(sp)
         } else {
             let sp = ShortestPathsCache::compute_all_graph_pairs_par(graph);

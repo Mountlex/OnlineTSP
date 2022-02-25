@@ -5,7 +5,6 @@ use crate::{cost::Cost, AdjListGraph};
 pub fn graphml_import(
     filename: PathBuf,
     max_nodes: Option<usize>,
-    scale: Option<usize>,
 ) -> AdjListGraph {
     let mut graph = AdjListGraph::new();
 
@@ -31,11 +30,9 @@ pub fn graphml_import(
                             c.tag_name().name() == "data" && c.attribute("key") == Some(length_key)
                         }) {
                             let real = length_node.text().unwrap().trim().parse::<f64>().unwrap();
-                            let cost = if let Some(scale) = scale {
-                                Cost::new((real.ceil() / (scale as f64)).floor() as usize)
-                            } else {
-                                Cost::new(real.ceil() as usize)
-                            };
+                            let cost = 
+                                Cost::new(real.ceil() as usize);
+                            
                             graph.add_edge(source.into(), sink.into(), cost);
                         }
                     }
