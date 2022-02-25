@@ -484,7 +484,7 @@ pub fn learning_augmented(
             return env.time;
         }
 
-        if env.next_release.is_none() {
+        if env.pos == env.origin && env.next_release.is_none() {
             return env.time;
         }
 
@@ -492,7 +492,7 @@ pub fn learning_augmented(
             *n == env.pos
                 || *n == env.origin
                 || !release_dates.contains_key(n)
-                || release_dates[n] >= env.time
+                || release_dates[n] > env.time
         });
 
         // wait in origin until next release
