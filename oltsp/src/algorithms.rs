@@ -113,22 +113,15 @@ where
         (false, served_nodes)
     }
 
-    fn follow_tour_until_next_release(&mut self, tour: TimedTour) -> Vec<Node> {
-        self.follow_tour_until_time(tour, self.next_release)
+    fn follow_tour_until_next_release<G>(&mut self, tour_graph: &G, tour: TimedTour) -> Vec<Node> where G: Metric {
+        self.follow_tour_until_time(tour_graph, tour, self.next_release)
     }
 
-    fn follow_tour_until_time(&mut self, tour: TimedTour, until_time: Option<usize>) -> Vec<Node> {
+    fn follow_tour_until_time<G>(&mut self, tour_graph: &G, tour: TimedTour, until_time: Option<usize>) -> Vec<Node> where G: Metric {
         assert_eq!(Some(&self.pos), tour.nodes().first());
 
         // nodes that we visited until its release date in tour
         let mut served_nodes: Vec<Node> = vec![];
-
-        let metric_graph = MetricView::from_metric_on_nodes(
-            self.current_nodes.clone(),
-            self.metric,
-            self.virtual_node,
-            self.buffer.clone(),
-        );
 
         for (edge, source_wait) in tour.nodes().windows(2).zip(tour.waiting_until()) {
             if let Some(source_wait) = source_wait {
@@ -142,7 +135,7 @@ where
                 // wait until source_wait before we traverse edge, if this time has not passed yet.
                 self.time = self.time.max(*source_wait);
             }
-            let length = metric_graph.distance(edge[0], edge[1]).get_usize();
+            let length = tour_graph.distance(edge[0], edge[1]).get_usize();
             // we leave edge[0]
             served_nodes.push(edge[0]);
 
@@ -343,7 +336,7 @@ pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: Soluti
         log::info!("Replan: current tour = {:?}", tour);
 
         log::info!("Replan: follow tour until next release date");
-        let served = env.follow_tour_until_next_release(TimedTour::from_tour(tour));
+        let served = env.follow_tour_until_next_release(&tour_graph ,TimedTour::from_tour(tour));
         env.remove_served_requests(&served);
 
         if env.next_release.is_none() {
@@ -482,11 +475,11 @@ pub fn learning_augmented(
 
         log::info!("Predict-Replan: follow tour until next import time");
         if i < time_points.len() {
-            let served = env.follow_tour_until_time(tour, Some(time_points[i]));
+            let served = env.follow_tour_until_time(&tour_graph, tour, Some(time_points[i]));
             i += 1;
             env.remove_served_requests(&served);
         } else {
-            env.follow_tour_until_time(tour, None);
+            env.follow_tour_until_time(&tour_graph, tour, None);
             return env.time;
         }
         assert!(env.time <= time_points[i - 1]);
