@@ -4,13 +4,13 @@ mod prediction;
 
 use algorithms::Environment;
 use graphlib::{sp::ShortestPathsCache, tsp::SolutionType, AdjListGraph, Node};
-pub use instance::{instance_from_file, Instance, NodeRequest};
+pub use instance::{instance_from_file, Instance};
 pub use prediction::gaussian_prediction;
 
 pub fn replan(
     graph: &AdjListGraph,
     metric: &ShortestPathsCache,
-    instance: Instance<NodeRequest>,
+    instance: Instance,
     start_node: Node,
     sol_type: SolutionType,
 ) -> usize {
@@ -21,7 +21,7 @@ pub fn replan(
 pub fn ignore(
     graph: &AdjListGraph,
     metric: &ShortestPathsCache,
-    instance: Instance<NodeRequest>,
+    instance: Instance,
     start_node: Node,
     sol_type: SolutionType,
 ) -> usize {
@@ -32,7 +32,7 @@ pub fn ignore(
 pub fn smartstart(
     graph: &AdjListGraph,
     metric: &ShortestPathsCache,
-    instance: Instance<NodeRequest>,
+    instance: Instance,
     start_node: Node,
     sol_type: SolutionType,
 ) -> usize {
@@ -43,10 +43,10 @@ pub fn smartstart(
 pub fn learning_augmented(
     graph: &AdjListGraph,
     metric: &ShortestPathsCache,
-    instance: Instance<NodeRequest>,
+    instance: Instance,
     start_node: Node,
     alpha: f64,
-    prediction: Instance<NodeRequest>,
+    prediction: Instance,
     sol_type: SolutionType,
 ) -> usize {
     let mut env = Environment::init(graph, metric, instance, start_node);

@@ -4,7 +4,6 @@ use csv::Writer;
 use graphlib::{graphml::graphml_import, sp, tsp, Metric, Node, Nodes, SpMetricGraph};
 use oltsp::{
     gaussian_prediction, ignore, instance_from_file, learning_augmented, replan, smartstart,
-    NodeRequest,
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -93,11 +92,11 @@ fn main() -> Result<()> {
                             start_node,
                             graphlib::tsp::SolutionType::Approx,
                         );
-                        let mut reqs: Vec<(NodeRequest, usize)> = vec![];
+                        let mut reqs: Vec<(Node, usize)> = vec![];
                         let mut t = 0;
                         for edge in tour.windows(2) {
                             t += metric_graph.distance(edge[0], edge[1]).get_usize();
-                            reqs.push((NodeRequest(edge[1]), t));
+                            reqs.push((edge[1], t));
                         }
                         instance = reqs.into()
                     }

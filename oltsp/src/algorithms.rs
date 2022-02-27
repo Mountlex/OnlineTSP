@@ -6,30 +6,27 @@ use graphlib::{
 };
 use rustc_hash::FxHashMap;
 
-use crate::instance::{Instance, NodeRequest, Request};
+use crate::instance::{Instance};
 
-pub struct Environment<'a, G, R> {
+pub struct Environment<'a, G> {
     base_graph: G,
     metric: &'a ShortestPathsCache,
     current_nodes: Vec<Node>,
     time: usize,
     origin: Node,
     pos: Node,
-    instance: Instance<R>,
+    instance: Instance,
     known_requests: Vec<Node>,
     next_release: Option<usize>,
     virtual_node: Option<Node>,
     buffer: Option<DistanceCache>,
 }
 
-impl<'a, R> Environment<'a, AdjListGraph, R>
-where
-    R: Clone + Request,
-{
+impl<'a> Environment<'a, AdjListGraph> {
     pub fn init(
         base_graph: &AdjListGraph,
         metric: &'a ShortestPathsCache,
-        mut instance: Instance<R>,
+        mut instance: Instance,
         origin: Node,
     ) -> Self {
         let (known_requests, next_release) = instance.released_at(0);
@@ -204,7 +201,7 @@ where
 }
 
 pub fn ignore(
-    env: &mut Environment<AdjListGraph, NodeRequest>,
+    env: &mut Environment<AdjListGraph>,
     back_until: Option<usize>,
     sol_type: SolutionType,
 ) -> usize {
@@ -252,7 +249,7 @@ pub fn ignore(
 }
 
 pub fn smartstart(
-    env: &mut Environment<AdjListGraph, NodeRequest>,
+    env: &mut Environment<AdjListGraph>,
     back_until: Option<usize>,
     sol_type: SolutionType,
 ) -> usize {
@@ -320,7 +317,7 @@ pub fn smartstart(
     }
 }
 
-pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: SolutionType) -> usize {
+pub fn replan(env: &mut Environment<AdjListGraph>, sol_type: SolutionType) -> usize {
     log::info!("======== Starting REPLAN");
     loop {
         let start_time = env.time;
@@ -363,9 +360,9 @@ pub fn replan(env: &mut Environment<AdjListGraph, NodeRequest>, sol_type: Soluti
 }
 
 pub fn learning_augmented(
-    env: &mut Environment<AdjListGraph, NodeRequest>,
+    env: &mut Environment<AdjListGraph>,
     alpha: f64,
-    prediction: Instance<NodeRequest>,
+    prediction: Instance,
     sol_type: SolutionType,
 ) -> usize {
     log::info!("======== Starting Predict-Replan with alpha = {}.", &alpha);
@@ -559,7 +556,7 @@ mod test_algorithms {
         graph.add_edge(5.into(), 6.into(), 6.into());
         let metric_graph = SpMetricGraph::from_graph(&graph);
 
-        let instance = Instance::<NodeRequest>::default();
+        let instance = Instance::default();
         let mut env = Environment::init(
             &graph,
             metric_graph.metric_ref(),
@@ -569,7 +566,7 @@ mod test_algorithms {
         let cost = ignore(&mut env, None, SolutionType::Optimal);
         assert_eq!(cost, 0);
 
-        let instance: Instance<NodeRequest> = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
+        let instance: Instance = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
         let mut env = Environment::init(
             &graph,
             metric_graph.metric_ref(),
@@ -579,7 +576,7 @@ mod test_algorithms {
         let cost = ignore(&mut env, Some(0), SolutionType::Optimal);
         assert_eq!(cost, 0);
 
-        let instance: Instance<NodeRequest> = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
+        let instance: Instance = vec![(3, 0), (6, 0), (2, 1), (5, 1)].into();
         let mut env = Environment::init(
             &graph,
             metric_graph.metric_ref(),
@@ -589,7 +586,7 @@ mod test_algorithms {
         let cost = ignore(&mut env, Some(10), SolutionType::Optimal);
         assert_eq!(cost, 0);
 
-        let instance: Instance<NodeRequest> = vec![(2, 0), (5, 0), (6, 1), (3, 1)].into();
+        let instance: Instance = vec![(2, 0), (5, 0), (6, 1), (3, 1)].into();
         let mut env = Environment::init(
             &graph,
             metric_graph.metric_ref(),
@@ -599,7 +596,7 @@ mod test_algorithms {
         let cost = ignore(&mut env, Some(10), SolutionType::Optimal);
         assert_eq!(cost, 10);
 
-        let instance: Instance<NodeRequest> = vec![(2, 11)].into();
+        let instance: Instance = vec![(2, 11)].into();
         let mut env = Environment::init(
             &graph,
             metric_graph.metric_ref(),
@@ -647,7 +644,7 @@ mod test_algorithms {
         graph.add_edge(5.into(), 6.into(), 6.into());
         let metric_graph = SpMetricGraph::from_graph(&graph);
 
-        let instance = Instance::<NodeRequest>::default();
+        let instance = Instance::default();
         let mut env = Environment::init(
             &graph,
             metric_graph.metric_ref(),

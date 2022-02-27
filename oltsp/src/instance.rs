@@ -8,41 +8,25 @@ use graphlib::{
 use rustc_hash::FxHashMap;
 use std::fmt::Debug;
 
-pub trait Request {
-    fn node(&self) -> Node;
-}
 
-#[derive(Clone, Debug, Default)]
-pub struct NodeRequest(pub Node);
 
-impl From<usize> for NodeRequest {
-    fn from(id: usize) -> Self {
-        NodeRequest(id.into())
-    }
-}
-
-impl Request for NodeRequest {
-    fn node(&self) -> Node {
-        self.0
-    }
-}
 
 #[derive(Default, Clone, Debug)]
-pub struct Instance<R> {
-    requests: Vec<(R, usize)>,
+pub struct Instance {
+    requests: Vec<(Node, usize)>,
 }
 
-impl From<Vec<(usize, usize)>> for Instance<NodeRequest> {
+impl From<Vec<(usize, usize)>> for Instance {
     fn from(raw: Vec<(usize, usize)>) -> Self {
         raw.into_iter()
             .map(|(x, t)| (x.into(), t.into()))
-            .collect::<Vec<(NodeRequest, usize)>>()
+            .collect::<Vec<(Node, usize)>>()
             .into()
     }
 }
 
-impl<R> From<Vec<(R, usize)>> for Instance<R> {
-    fn from(reqs: Vec<(R, usize)>) -> Self {
+impl From<Vec<(Node, usize)>> for Instance {
+    fn from(reqs: Vec<(Node, usize)>) -> Self {
         let mut time_sorted = reqs;
         time_sorted.sort_by_key(|(_, t)| *t);
         Self {
@@ -51,15 +35,12 @@ impl<R> From<Vec<(R, usize)>> for Instance<R> {
     }
 }
 
-impl<R> Instance<R>
-where
-    R: Clone + Request,
-{
+impl Instance {
     pub fn scale_rd(&mut self, scale: usize) {
         self.requests.iter_mut().for_each(|(_, r)| *r = *r * scale)
     }
 
-    pub fn reqs(&self) -> &Vec<(R, usize)> {
+    pub fn reqs(&self) -> &Vec<(Node, usize)> {
         &self.requests
     }
 
@@ -68,7 +49,7 @@ where
     }
 
     pub fn nodes(&self) -> Vec<Node> {
-        self.requests.iter().map(|(r, _)| r.node()).collect()
+        self.requests.iter().map(|(r, _)| *r).collect()
     }
 
     pub fn distinct_nodes(&self) -> Vec<Node> {
@@ -79,7 +60,7 @@ where
     }
 
     pub fn release_dates(&self) -> FxHashMap<Node, usize> {
-        self.requests.iter().map(|(r, t)| (r.node(), *t)).collect()
+        self.requests.iter().map(|(r, t)| (*r, *t)).collect()
     }
 
     /// Returns the set of requests that are released at times t as well as the next release date if there is such
@@ -88,7 +69,7 @@ where
         let mut i = 0;
         while i < self.requests.len() {
             if self.requests[i].1 == t {
-                released.push(self.requests[i].0.clone().node())
+                released.push(self.requests[i].0.clone())
             }
             if self.requests[i].1 > t {
                 return (released, Some(self.requests[i].1));
@@ -106,7 +87,7 @@ where
         let mut i = 0;
         while i < self.requests.len() {
             if l < self.requests[i].1 && self.requests[i].1 <= r {
-                released.push(self.requests[i].0.clone().node())
+                released.push(self.requests[i].0.clone())
             }
             if self.requests[i].1 > r {
                 return (released, Some(self.requests[i].1));
@@ -130,7 +111,7 @@ where
         // update release date w.r.t. current time
         let mut distinct_release_dates = FxHashMap::<Node, usize>::default();
         for (n, r) in &self.requests {
-            let entry = distinct_release_dates.entry(n.node()).or_insert(0);
+            let entry = distinct_release_dates.entry(*n).or_insert(0);
             *entry = (*entry).max(*r);
         }
         let mut nodes = self.nodes();
@@ -252,7 +233,7 @@ where
     }
 }
 
-pub fn instance_from_file(filename: &PathBuf) -> Result<Instance<NodeRequest>, Box<dyn Error>> {
+pub fn instance_from_file(filename: &PathBuf) -> Result<Instance, Box<dyn Error>> {
     let mut reader = csv::Reader::from_path(filename)?;
     let mut requests: Vec<(usize, usize)> = vec![];
     for record in reader.records() {
@@ -261,7 +242,7 @@ pub fn instance_from_file(filename: &PathBuf) -> Result<Instance<NodeRequest>, B
         let t: usize = record[1].parse()?;
         requests.push((x, t))
     }
-    let instance: Instance<NodeRequest> = requests.into();
+    let instance: Instance = requests.into();
     Ok(instance)
 }
 
@@ -280,7 +261,7 @@ mod test_instance {
         graph.add_edge(3.into(), 4.into(), 1.into());
         let sp = ShortestPathsCache::compute_all_graph_pairs(&graph);
 
-        let instance: Instance<NodeRequest> = vec![(4, 1), (2, 7)].into();
+        let instance: Instance = vec![(4, 1), (2, 7)].into();
 
         let (obj, tour) = instance.optimal_solution(1.into(), &sp, SolutionType::Optimal);
 
