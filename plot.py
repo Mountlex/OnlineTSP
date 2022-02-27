@@ -26,7 +26,7 @@ def legend(name, param):
     elif "smart" in name:
         return f"SmartStart"
     elif "pred" in name:
-        return f"Pred-Replan (λ = {param})"
+        return f"SmartTrust (α = {param})"
     else:
         return "unknown"
 
@@ -37,7 +37,7 @@ def plot(filename, save):
 
     df = pd.read_csv(filename)
     df = df.round(3)
-    df['cr'] = 2.5 * df['alg'] / df['opt'] 
+    df['cr'] = df['alg'] / df['opt'] 
     df['param'] = df[['name','param']].apply(lambda x: legend(*x),axis=1)
 
     ax = sns.lineplot(data=df, x=x_name, y="cr", hue='param', style='param', markers=('round' in list(df)), linewidth=2.5, markersize=8)
@@ -45,7 +45,8 @@ def plot(filename, save):
  
     ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
     ax.set(xscale='symlog')
-    plt.ylim(bottom=0.8)
+    #ax.set(yscale='log')
+    plt.ylim(bottom=0.9, top=1.5)
     plt.xlabel("Noise parameter")
 
     plt.ylabel('Empirical competitive ratio')
