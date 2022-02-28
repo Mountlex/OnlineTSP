@@ -527,7 +527,7 @@ pub fn learning_augmented(
         // Only consider future predictions
         open_preds.retain(|n| release_dates[n] > env.time);
 
-        if open_preds.is_empty() {
+        if open_preds.is_empty() && env.next_release.is_some() {
             // wait until next release
             env.time = env.time.max(env.next_release.unwrap());
         }
