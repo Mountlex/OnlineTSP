@@ -73,7 +73,7 @@ fn main() -> Result<()> {
                 .collect();
 
             let results: Vec<Exp1Result> = paths
-                .into_par_iter()
+                .into_iter()
                 .flat_map(|file| {
                     let start_node = 1.into();
                     log::info!("Loading instance from {:?}", file.path());
