@@ -62,8 +62,8 @@ struct Exp2 {
     #[clap(long = "wc-rd")]
     wc_rd: bool,
 
-    #[clap(long = "pred-frac", default_value = "1.0")]
-    rel_num_predictions: f64,
+    #[clap(long = "pred-frac", default_value = "11")]
+    num_predictions: usize,
 
     #[clap(short, long, default_value = "1")]
     scale: usize,
@@ -282,54 +282,64 @@ fn main() -> Result<()> {
                         graphlib::tsp::SolutionType::Approx,
                     ) as u64;
 
-                    let pred = gaussian_prediction(
-                        &instance,
-                        &sp,
-                        &base_nodes,
-                        0.0,
-                        exp.rel_num_predictions,
-                    );
-                    let mut results: Vec<Exp2Result> = vec![];
+                    
 
-                    [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {
-                        results.push(Exp2Result {
-                            name: "pred".into(),
-                            param: *alpha,
-                            opt: lb as u64,
-                            alg: learning_augmented(
-                                &graph,
+                    let results: Vec<Exp2Result> = (0..exp.num_predictions)
+                        .into_iter()
+                        .flat_map(|num_p| {
+                            let frac = num_p as f64 / (exp.num_predictions as f64 - 1.0);
+                            let pred = gaussian_prediction(
+                                &instance,
                                 &sp,
-                                instance.clone(),
-                                start_node,
-                                *alpha,
-                                pred.clone(),
-                                graphlib::tsp::SolutionType::Approx,
-                            ) as u64,
-                            frac: exp.rel_num_predictions,
-                        });
-                    });
+                                &base_nodes,
+                                0.0,
+                                frac,
+                            );
+                            let mut results: Vec<Exp2Result> = vec![];
 
-                    results.push(Exp2Result {
-                        name: "ignore".into(),
-                        param: 0.0,
-                        opt: lb as u64,
-                        alg: t_ignore,
-                        frac: exp.rel_num_predictions,
-                    });
-                    results.push(Exp2Result {
-                        name: "replan".into(),
-                        param: 0.0,
-                        opt: lb as u64,
-                        alg: t_replan,
-                        frac: exp.rel_num_predictions,
-                    });
-                    results.push(Exp2Result {
-                        name: "smart".into(),
-                        param: 0.0,
-                        opt: lb as u64,
-                        alg: t_smart,
-                        frac: exp.rel_num_predictions,
-                    });
+                            [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {
+                                results.push(Exp2Result {
+                                    name: "pred".into(),
+                                    param: *alpha,
+                                    opt: lb as u64,
+                                    alg: learning_augmented(
+                                        &graph,
+                                        &sp,
+                                        instance.clone(),
+                                        start_node,
+                                        *alpha,
+                                        pred.clone(),
+                                        graphlib::tsp::SolutionType::Approx,
+                                    ) as u64,
+                                    frac,
+                                });
+                            });
+
+                            results.push(Exp2Result {
+                                name: "ignore".into(),
+                                param: 0.0,
+                                opt: lb as u64,
+                                alg: t_ignore,
+                                frac,
+                            });
+                            results.push(Exp2Result {
+                                name: "replan".into(),
+                                param: 0.0,
+                                opt: lb as u64,
+                                alg: t_replan,
+                                frac,
+                            });
+                            results.push(Exp2Result {
+                                name: "smart".into(),
+                                param: 0.0,
+                                opt: lb as u64,
+                                alg: t_smart,
+                                frac,
+                            });
+                            results
+                        })
+                        .collect();
+
                     results
                 })
                 .collect();

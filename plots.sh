@@ -1,4 +1,4 @@
-python3 plot.py results/results_s150.csv --save
-python3 plot.py results/results_s50.csv --save
-python3 plot.py results/results_s100.csv --save
-
+for file in results/*.csv
+do
+  python3 plot.py "$file" --save
+done
