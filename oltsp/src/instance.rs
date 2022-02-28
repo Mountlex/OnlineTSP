@@ -129,10 +129,17 @@ impl Instance {
         )
     }
 
-    //pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> Cost where M: Metric + Clone + Debug {
-    //    let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
-    //approx
-    //}
+    pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> usize where M: Metric + Clone + Debug {
+        if self.requests.is_empty() {
+            return 0
+        }
+
+        let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
+        let lb1 = (approx.as_float() / 2.5).floor() as usize;
+        let lb2 = self.requests.iter().map(|(node, r)| *r + metric.distance(start_node, *node).get_usize()).max().unwrap();
+
+        lb1.max(lb2)
+    }
 }
 
 struct InstanceGraph<'a, M> {

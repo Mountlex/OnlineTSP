@@ -104,13 +104,12 @@ fn main() -> Result<()> {
                         instance = reqs.into()
                     }
 
-                    log::info!("Computing optimal solution for {:?}...", file.file_name());
-                    let (opt, tour) = instance.optimal_solution(
+                    log::info!("Computing lower bound on optimal solution for {:?}...", file.file_name());
+                    let lb = instance.lower_bound(
                         start_node,
                         &sp,
-                        graphlib::tsp::SolutionType::Approx,
                     );
-                    log::info!("    ...success. Optimal tour = {}", tour);
+                    log::info!("    ...success. {}", lb);
 
                     let base_nodes: Vec<Node> = graph.nodes().collect();
 
@@ -155,7 +154,7 @@ fn main() -> Result<()> {
                                 results.push(Exp1Result {
                                     name: "pred".into(),
                                     param: *alpha,
-                                    opt: opt.get_usize() as u64,
+                                    opt: lb as u64,
                                     alg: learning_augmented(
                                         &graph,
                                         &sp,
@@ -172,21 +171,21 @@ fn main() -> Result<()> {
                             results.push(Exp1Result {
                                 name: "ignore".into(),
                                 param: 0.0,
-                                opt: opt.get_usize() as u64,
+                                opt: lb as u64,
                                 alg: t_ignore,
                                 sigma,
                             });
                             results.push(Exp1Result {
                                 name: "replan".into(),
                                 param: 0.0,
-                                opt: opt.get_usize() as u64,
+                                opt: lb as u64,
                                 alg: t_replan,
                                 sigma,
                             });
                             results.push(Exp1Result {
                                 name: "smart".into(),
                                 param: 0.0,
-                                opt: opt.get_usize() as u64,
+                                opt: lb as u64,
                                 alg: t_smart,
                                 sigma,
                             });
