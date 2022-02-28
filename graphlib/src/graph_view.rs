@@ -50,6 +50,10 @@ where
         }
     }
 
+    pub fn component(&self) -> Node {
+        self.component.clone()
+    }
+
     pub fn with_upper_bound(base: &'a G, component: Node, upper_bound: Cost) -> Self {
         GraphView::new(base, component, EdgeBound::Upper(upper_bound))
     }

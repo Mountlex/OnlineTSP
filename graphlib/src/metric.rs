@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-use rayon::iter::ParallelIterator;
-
 use crate::{
     sp::ShortestPathsCache, Adjacency, Cost, Cut, CutIter, Edge, Graph, GraphSize, Neighbors, Node,
     NodeIndex, NodeSet, Nodes, ShortestPaths, Weighted,

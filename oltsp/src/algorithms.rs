@@ -2,7 +2,7 @@ use graphlib::{
     mst,
     sp::{DistanceCache, ShortestPathsCache},
     tsp::{self, SolutionType, TimedTour},
-    AdjListGraph, Cost, Metric, MetricView, Node, Nodes,
+    AdjListGraph, Cost, Metric, MetricView, Node,
 };
 use rustc_hash::FxHashMap;
 
@@ -227,7 +227,7 @@ pub fn ignore(
             env.remove_served_requests(&tour);
         }
 
-        if env.next_release.is_none() {
+        if env.next_release.is_none() && env.open_requests.is_empty() {
             return env.time;
         }
 
@@ -291,10 +291,7 @@ pub fn smartstart(
             env.time = sleep_until;
         }
 
-        if env.next_release.is_none()
-            && env.current_nodes().len() == 1
-            && env.current_nodes().first() == Some(&env.origin)
-        {
+        if env.next_release.is_none() && env.open_requests.is_empty() {
             return env.time;
         }
 
@@ -337,7 +334,8 @@ pub fn replan(env: &mut Environment<AdjListGraph>, sol_type: SolutionType) -> us
         env.remove_served_requests(&served);
 
         if env.next_release.is_none() {
-            //assert_eq!(vec![env.origin], env.current_nodes);
+            assert_eq!(env.pos, env.origin);
+            assert!(env.open_requests.is_empty());
             return env.time;
         }
 

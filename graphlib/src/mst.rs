@@ -1,4 +1,4 @@
-use crate::{cost::Cost, AdjListGraph, Adjacency, Graph, Node, Nodes, Tree};
+use crate::{cost::Cost, AdjListGraph, Adjacency, Node, Nodes, Tree};
 use binary_heap_plus::BinaryHeap;
 use compare::Compare;
 use std::{
@@ -124,7 +124,7 @@ where
 #[cfg(test)]
 mod test_prims {
     use super::*;
-    use crate::{GraphSize, TotalWeight};
+    use crate::{GraphSize, TotalWeight, Graph};
 
     ///   1 --5-- 2 --1-- 3
     ///  |3|     |1|     |3|

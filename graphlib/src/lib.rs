@@ -1,6 +1,6 @@
 mod christofides;
 mod cost;
-mod dijkstra;
+pub mod dijkstra;
 mod edge;
 mod graph_view;
 mod index;
@@ -14,7 +14,7 @@ pub mod sp;
 mod tour;
 mod tree;
 pub mod tsp;
-mod two_opt;
+pub mod two_opt;
 
 pub mod graphml;
 

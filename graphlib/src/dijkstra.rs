@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::cmp::Ordering;
 
 use compare::Compare;
 use fibheap::FibHeap;
@@ -40,16 +40,16 @@ where
     (paths.cost_to(n2).unwrap(), paths.path_to(n2).unwrap())
 }
 
-pub fn path_to(parent_map: &HashMap<Node, Node>, n1: Node, n2: Node) -> Vec<Node> {
-    let mut path = vec![n2];
-    let mut n = n2;
-    while n != n1 {
-        n = parent_map[&n];
-        path.push(n);
-    }
-    path.reverse();
-    path
-}
+// pub fn path_to(parent_map: &HashMap<Node, Node>, n1: Node, n2: Node) -> Vec<Node> {
+//     let mut path = vec![n2];
+//     let mut n = n2;
+//     while n != n1 {
+//         n = parent_map[&n];
+//         path.push(n);
+//     }
+//     path.reverse();
+//     path
+// }
 
 pub fn shortest_paths_to<'a, G>(graph: &'a G, node: Node, goals: &[Node]) -> Paths
 where

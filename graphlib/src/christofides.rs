@@ -14,11 +14,10 @@ use lp_modeler::solvers::{SolverTrait, Status};
 use rand::seq::SliceRandom;
 use std::io::{BufRead, Write};
 
-use crate::dijkstra::shortest_paths_to;
 use crate::metric::Metric;
 use crate::mst::prims_tree;
 use crate::{
-    cost::Cost, AdjListGraph, Adjacency, Edge, Graph, GraphSize, MultiGraph, Node, NodeSet,
+    cost::Cost, Adjacency, Edge, Graph, GraphSize, MultiGraph, Node, NodeSet,
     TotalWeight, Tour,
 };
 use crate::{Nodes, Weighted};
@@ -34,19 +33,19 @@ where
         .collect::<Vec<Node>>()
 }
 
-fn artifical_edges_to(graph: &AdjListGraph, node: Node, sinks: &[Node]) -> Vec<Edge> {
-    let mut edges = vec![];
-    let paths = shortest_paths_to(graph, node, sinks);
-    for &n2 in sinks {
-        if n2 != node {
-            let cost = paths.cost_to(n2).unwrap();
-            let edge = Edge::new(node, n2, cost);
-            assert!(edge.sink() != edge.source());
-            edges.push(edge);
-        }
-    }
-    edges
-}
+// fn artifical_edges_to(graph: &AdjListGraph, node: Node, sinks: &[Node]) -> Vec<Edge> {
+//     let mut edges = vec![];
+//     let paths = shortest_paths_to(graph, node, sinks);
+//     for &n2 in sinks {
+//         if n2 != node {
+//             let cost = paths.cost_to(n2).unwrap();
+//             let edge = Edge::new(node, n2, cost);
+//             assert!(edge.sink() != edge.source());
+//             edges.push(edge);
+//         }
+//     }
+//     edges
+// }
 
 fn blossom_algorithm<'a, G>(
     graph: &'a G,
@@ -479,7 +478,7 @@ where
 
 #[cfg(test)]
 mod test_christofides {
-    use crate::christofides::*;
+    use crate::{christofides::*, AdjListGraph};
     use crate::metric::{MetricCompletion, SpMetricGraph};
     use crate::mst::prims_tree;
 
@@ -662,36 +661,36 @@ mod test_christofides {
         assert_eq!(euler_tour, vec![0.into()]);
     }
 
-    ///  https://de.wikipedia.org/wiki/Algorithmus_von_Christofides
-    ///
-    ///  1 ------- 2
-    ///  |  \   /  |
-    ///  |    3    |
-    ///  |  /   \  |
-    ///  4 ------- 5
+    // /  https://de.wikipedia.org/wiki/Algorithmus_von_Christofides
+    // /
+    // /  1 ------- 2
+    // /  |  \   /  |
+    // /  |    3    |
+    // /  |  /   \  |
+    // /  4 ------- 5
     //#[test]
-    fn test_tsp1() {
-        let mut graph = AdjListGraph::new();
-        graph.add_edge(1.into(), 2.into(), 1.into());
-        graph.add_edge(1.into(), 3.into(), 1.into());
-        graph.add_edge(1.into(), 4.into(), 1.into());
-        graph.add_edge(2.into(), 3.into(), 1.into());
-        graph.add_edge(2.into(), 5.into(), 1.into());
-        graph.add_edge(3.into(), 4.into(), 1.into());
-        graph.add_edge(3.into(), 5.into(), 1.into());
-        graph.add_edge(4.into(), 5.into(), 1.into());
-        graph.add_edge(2.into(), 4.into(), 2.into());
-        graph.add_edge(1.into(), 5.into(), 2.into());
+    // fn test_tsp1() {
+    //     let mut graph = AdjListGraph::new();
+    //     graph.add_edge(1.into(), 2.into(), 1.into());
+    //     graph.add_edge(1.into(), 3.into(), 1.into());
+    //     graph.add_edge(1.into(), 4.into(), 1.into());
+    //     graph.add_edge(2.into(), 3.into(), 1.into());
+    //     graph.add_edge(2.into(), 5.into(), 1.into());
+    //     graph.add_edge(3.into(), 4.into(), 1.into());
+    //     graph.add_edge(3.into(), 5.into(), 1.into());
+    //     graph.add_edge(4.into(), 5.into(), 1.into());
+    //     graph.add_edge(2.into(), 4.into(), 2.into());
+    //     graph.add_edge(1.into(), 5.into(), 2.into());
 
-        let metric_graph = graph.compute_metric_completion();
-        let (cost, tour) = christofides(
-            &metric_graph,
-            1.into(),
-            1.into(),
-            MatchingAlgorithm::Blossom,
-        );
-        assert_eq!(tour.len(), 6);
-        assert_eq!(tour.first(), tour.last());
-        assert_eq!(cost, 6.into());
-    }
+    //     let metric_graph = graph.compute_metric_completion();
+    //     let (cost, tour) = christofides(
+    //         &metric_graph,
+    //         1.into(),
+    //         1.into(),
+    //         MatchingAlgorithm::Blossom,
+    //     );
+    //     assert_eq!(tour.len(), 6);
+    //     assert_eq!(tour.first(), tour.last());
+    //     assert_eq!(cost, 6.into());
+    // }
 }
