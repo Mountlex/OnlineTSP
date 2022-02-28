@@ -449,6 +449,7 @@ pub fn learning_augmented(
 
         // current metric graph
         let mut tour_nodes = [env.current_nodes(), open_preds.clone()].concat();
+        log::info!("Predict-Replan: replanning at time {}. pos = {}, tour nodes = {:?}", env.time, env.pos, tour_nodes);
         tour_nodes.sort();
         tour_nodes.dedup();
         let tour_graph = MetricView::from_metric_on_nodes(
@@ -518,8 +519,15 @@ pub fn learning_augmented(
         // Only consider future predictions
         open_preds.retain(|n| release_dates[n] > env.time);
 
+        if open_preds.is_empty() {
+            // wait until next release
+            env.time = env.time.max(env.next_release.unwrap());
+        }
+
+
         // Add released requests
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
+        log::info!("New requests: {:?}", new_requests);
         env.add_requests(new_requests);
         env.next_release = next_release;
     }

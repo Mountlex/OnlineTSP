@@ -105,6 +105,7 @@ impl Instance {
     where
         M: Metric + Clone + Debug,
     {
+
         let mut distinct_release_dates = FxHashMap::<Node, usize>::default();
         for (n, r) in &self.requests {
             let entry = distinct_release_dates.entry(*n).or_insert(0);

@@ -32,22 +32,29 @@ def legend(name, param):
 
 def plot(filename, save):
     sns.set_theme(style='ticks')
-
-    x_name = 'sigma'
-
     df = pd.read_csv(filename)
+
+    if 'sigma' in list(df):
+        x_name = 'sigma'
+    else:
+        x_name = 'frac'
+
     df = df.round(3)
     df['cr'] = df['alg'] / df['opt'] 
     df['param'] = df[['name','param']].apply(lambda x: legend(*x),axis=1)
 
-    ax = sns.lineplot(data=df, x=x_name, y="cr", hue='param', style='param', markers=('round' in list(df)), linewidth=2.5, markersize=8)
+    ax = sns.lineplot(data=df, x=x_name, y="cr", hue='param', style='param', markers=('frac' in list(df)), linewidth=2.5, markersize=8)
     handlers,_ = ax.get_legend_handles_labels()
  
     ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
-    ax.set(xscale='symlog')
-    #ax.set(yscale='log')
-    plt.ylim(bottom=0.9, top=4)
-    plt.xlabel("Noise parameter")
+    
+    if 'sigma' in list(df):
+        ax.set(xscale='symlog')
+        plt.ylim(bottom=0.9, top=4)
+        plt.xlabel("Noise parameter")
+    else:
+        plt.ylim(bottom=0.9, top=4)
+        plt.xlabel("Predicted percentage of actual instance")
 
     plt.ylabel('Empirical competitive ratio')
     plt.tight_layout()
