@@ -429,10 +429,12 @@ pub fn learning_augmented(
     time_points.sort();
     time_points.dedup();
 
-    for &pred in &open_preds {
-        for (req, r) in env.instance.reqs() {
-            if pred == *req && *r == release_dates[&pred] {
-                time_points.retain(|t| t != r);
+    if env.time == 0 {
+        for &pred in &open_preds {
+            for (req, r) in env.instance.reqs() {
+                if pred == *req && *r == release_dates[&pred] {
+                    time_points.retain(|t| t != r);
+                }
             }
         }
     }
