@@ -6,6 +6,8 @@ use std::{
 };
 use std::{fs, io::BufWriter};
 
+use std::thread;
+
 use lp_modeler::dsl::*;
 use lp_modeler::solvers::{SolverTrait, Status};
 
@@ -57,12 +59,14 @@ where
     log::trace!("Using Edmond's blossom algorithm to compute optimal matching.");
 
     let input_file = &format!(
-        "input_{}.txt",
-        chrono::Local::now().format("%d%m%Y-%H%M-%f")
+        "input_{}_{:?}.txt",
+        chrono::Local::now().format("%d%m%Y-%H%M-%f"),
+        thread::current().id()
     );
     let output_file = &format!(
-        "output_{}.txt",
-        chrono::Local::now().format("%d%m%Y-%H%M-%f")
+        "output_{}_{:?}.txt",
+        chrono::Local::now().format("%d%m%Y-%H%M-%f"),
+        thread::current().id()
     );
 
     let mut nodes = odd_vertices.to_owned();

@@ -32,6 +32,9 @@ struct Exp1 {
     #[clap(long = "base-sigma", default_value = "2")]
     base_sigma: f64,
 
+    #[clap(long = "pred-frac", default_value = "1.0")]
+    rel_num_predictions: f64,
+
     #[clap(short, long, default_value = "1")]
     scale: usize,
 
@@ -73,7 +76,7 @@ fn main() -> Result<()> {
                 .collect();
 
             let results: Vec<Exp1Result> = paths
-                .into_iter()
+                .into_par_iter()
                 .flat_map(|file| {
                     let start_node = 1.into();
                     log::info!("Loading instance from {:?}", file.path());
@@ -140,7 +143,7 @@ fn main() -> Result<()> {
                         .flat_map(|sigma_num| {
                             let sigma = exp.base_sigma.powi(sigma_num) - 1.0;
                             let pred =
-                                gaussian_prediction(&instance, &sp, &base_nodes, sigma, None);
+                                gaussian_prediction(&instance, &sp, &base_nodes, sigma, exp.rel_num_predictions);
                             let mut results: Vec<Exp1Result> = vec![];
 
                             [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {
