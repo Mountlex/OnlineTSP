@@ -431,7 +431,6 @@ pub fn learning_augmented(
     time_points.sort();
     time_points.dedup();
 
-
     assert!((time_points.is_empty() && env.next_release.is_none()) || (time_points[0] > env.time));
 
     let mut i = 0;

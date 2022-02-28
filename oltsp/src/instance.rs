@@ -8,9 +8,6 @@ use graphlib::{
 use rustc_hash::FxHashMap;
 use std::fmt::Debug;
 
-
-
-
 #[derive(Default, Clone, Debug)]
 pub struct Instance {
     requests: Vec<(Node, usize)>,

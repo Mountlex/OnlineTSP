@@ -1,6 +1,6 @@
 use graphlib::{sp::ShortestPathsCache, Cost, Metric, Node};
 
-use rand::seq::{IteratorRandom,SliceRandom};
+use rand::seq::{IteratorRandom, SliceRandom};
 use rand_distr::{Distribution, Normal};
 
 use crate::Instance;
@@ -10,30 +10,32 @@ pub fn gaussian_prediction(
     metric: &ShortestPathsCache,
     nodes: &[Node],
     sigma: f64,
-    rel_num_pred: f64
+    rel_num_pred: f64,
 ) -> Instance {
     let mut rng = rand::thread_rng();
 
     let n_pred = (instance.len() as f64 * rel_num_pred).floor() as usize;
 
     if sigma == 0.0 {
-        let reqs: Vec<(Node, usize)> = instance.reqs().choose_multiple(&mut rng, n_pred).copied().collect();
-        return reqs.into()
+        let reqs: Vec<(Node, usize)> = instance
+            .reqs()
+            .choose_multiple(&mut rng, n_pred)
+            .copied()
+            .collect();
+        return reqs.into();
     }
 
     let dist = Normal::new(0.0, sigma).unwrap();
     let preds: Vec<(Node, usize)> = instance
         .reqs()
-        .iter()  
+        .iter()
         .map(|(x, t)| {
             let pred_t = (*t as f64 + dist.sample(&mut rng)).max(0.0).round() as usize;
 
             // TODO
             let pred_dist = dist.sample(&mut rng).abs();
-            let mut distances: Vec<(Node, Cost)> = nodes
-                .iter()
-                .map(|&n| (n, metric.distance(n, *x)))
-                .collect();
+            let mut distances: Vec<(Node, Cost)> =
+                nodes.iter().map(|&n| (n, metric.distance(n, *x))).collect();
             distances.sort_by_key(|(_, d)| *d);
 
             let mut pred_n = distances.last().unwrap().0;

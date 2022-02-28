@@ -142,8 +142,13 @@ fn main() -> Result<()> {
                         .into_iter()
                         .flat_map(|sigma_num| {
                             let sigma = exp.base_sigma.powi(sigma_num) - 1.0;
-                            let pred =
-                                gaussian_prediction(&instance, &sp, &base_nodes, sigma, exp.rel_num_predictions);
+                            let pred = gaussian_prediction(
+                                &instance,
+                                &sp,
+                                &base_nodes,
+                                sigma,
+                                exp.rel_num_predictions,
+                            );
                             let mut results: Vec<Exp1Result> = vec![];
 
                             [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {
