@@ -467,7 +467,7 @@ pub fn learning_augmented(
             .iter()
             .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
             .collect();
-        let max_rd: usize = updated_release_dates.values().copied().max().unwrap();
+        let max_rd: usize = updated_release_dates.values().copied().max().unwrap_or_else(|| 0);
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
         let (_, tour) = tsp::tsp_rd_path(
             // in this tour, the algorithm only waits until a requests arrives at the current point

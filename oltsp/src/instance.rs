@@ -117,7 +117,7 @@ impl Instance {
 
         let tour_graph = MetricView::from_metric_on_nodes(nodes, metric, None, None);
 
-        let max_rd: usize = distinct_release_dates.values().copied().max().unwrap();
+        let max_rd: usize = distinct_release_dates.values().copied().max().unwrap_or_else(|| 0);
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
         tsp::tsp_rd_tour(
             &tour_graph,
