@@ -57,13 +57,14 @@ def plot(filename, save):
         ax.set(xscale='symlog')
         plt.xlabel("Noise parameter")
 
+        ax.set(yscale='log')
+        plt.tight_layout()
+        plt.savefig(f"{f}.pdf")
+
+        ax.set(yscale='linear')
         plt.ylim(bottom=0.9, top=2.8)
         plt.tight_layout()
         plt.savefig(f"{f}_zoom.pdf")
-
-        ax.set(xscale='log')
-        plt.tight_layout()
-        plt.savefig(f"{f}.pdf")
     else:
         ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
         plt.ylim(bottom=0.9, top=2.3)
