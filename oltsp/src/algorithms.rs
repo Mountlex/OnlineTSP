@@ -429,6 +429,14 @@ pub fn learning_augmented(
     time_points.sort();
     time_points.dedup();
 
+    for &pred in &open_preds {
+        for (req, r) in env.instance.reqs() {
+            if pred == *req && *r == release_dates[&pred] {
+                time_points.retain(|t| t != r);
+            }
+        }
+    }
+
     assert!((time_points.is_empty() && env.next_release.is_none()) || (time_points[0] > env.time));
 
     let mut i = 0;
@@ -436,6 +444,7 @@ pub fn learning_augmented(
 
     // Phase (iii)
     loop {
+
         let start_time = env.time;
 
         // current metric graph
