@@ -437,7 +437,7 @@ pub fn learning_augmented(
         }
     }
 
-    assert!((time_points.is_empty() && env.next_release.is_none()) || (time_points[0] > env.time));
+    //assert!((time_points.is_empty() && env.next_release.is_none()) || (time_points[0] > env.time));
 
     let mut i = 0;
     let start_phase_three = env.time;
