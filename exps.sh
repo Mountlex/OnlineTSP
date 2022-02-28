@@ -1,4 +1,7 @@
-cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=25 -o results/results_s100.csv -s=100
-cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=25 -o results/results_s200.csv -s=200
-cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=25 -o results/results_s300.csv -s=300
-cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=25 -o results/results_s400.csv -s=400
+cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=25 -o results/results_s5.csv -s=5
+cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=25 -o results/results_s20.csv -s=20
+cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=25 -o results/results_s50.csv -s=50
+cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=1 -o results/results_s50_p075.csv -s=50 --pred-frac 0.75
+cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=1 -o results/results_s50_p050.csv -s=50 --pred-frac 0.5
+cargo run --release -- exp1 data/instances --base-sigma=2 --num-sigma=1 -o results/results_s50_p025.csv -s=50 --pred-frac 0.25
+

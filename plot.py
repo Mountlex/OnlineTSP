@@ -46,7 +46,7 @@ def plot(filename, save):
     ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
     ax.set(xscale='symlog')
     #ax.set(yscale='log')
-    plt.ylim(bottom=0.9, top=1.5)
+    plt.ylim(bottom=0.9, top=4)
     plt.xlabel("Noise parameter")
 
     plt.ylabel('Empirical competitive ratio')
