@@ -95,7 +95,7 @@ impl MetricView<'_, ShortestPathsCache> {
             }
             walked += edge_cost;
         }
-        return (virtual_sink, None);
+        panic!("Couldn't split edge at desired position!")
     }
 }
 

@@ -105,10 +105,11 @@ fn main() -> Result<()> {
                     }
 
                     log::info!("Computing lower bound on optimal solution for {:?}...", file.file_name());
-                    let lb = instance.lower_bound(
+                    let lb = instance.optimal_solution(
                         start_node,
                         &sp,
-                    );
+                        tsp::SolutionType::Approx
+                    ).0.get_usize();
                     log::info!("    ...success. {}", lb);
 
                     let base_nodes: Vec<Node> = graph.nodes().collect();
