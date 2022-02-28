@@ -62,7 +62,7 @@ struct Exp2 {
     #[clap(long = "wc-rd")]
     wc_rd: bool,
 
-    #[clap(long = "pred-frac", default_value = "11")]
+    #[clap(long = "num-preds", default_value = "11")]
     num_predictions: usize,
 
     #[clap(short, long, default_value = "1")]
