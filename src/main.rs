@@ -4,7 +4,7 @@ use csv::Writer;
 use graphlib::{
     graphml::graphml_import,
     sp::{self, ShortestPathsCache},
-    tsp, Metric, MetricView, Node, Nodes, SpMetricGraph,
+    tsp, Metric, MetricView, Node, Nodes,
 };
 use oltsp::{
     gaussian_prediction, ignore, instance_from_file, learning_augmented, replan, smartstart,
@@ -282,19 +282,11 @@ fn main() -> Result<()> {
                         graphlib::tsp::SolutionType::Approx,
                     ) as u64;
 
-                    
-
                     let results: Vec<Exp2Result> = (0..exp.num_predictions)
                         .into_iter()
                         .flat_map(|num_p| {
                             let frac = num_p as f64 / (exp.num_predictions as f64 - 1.0);
-                            let pred = gaussian_prediction(
-                                &instance,
-                                &sp,
-                                &base_nodes,
-                                0.0,
-                                frac,
-                            );
+                            let pred = gaussian_prediction(&instance, &sp, &base_nodes, 0.0, frac);
                             let mut results: Vec<Exp2Result> = vec![];
 
                             [0.0, 0.1, 0.5, 1.0].iter().for_each(|alpha| {

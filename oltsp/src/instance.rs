@@ -105,7 +105,6 @@ impl Instance {
     where
         M: Metric + Clone + Debug,
     {
-
         let mut distinct_release_dates = FxHashMap::<Node, usize>::default();
         for (n, r) in &self.requests {
             let entry = distinct_release_dates.entry(*n).or_insert(0);
@@ -118,7 +117,11 @@ impl Instance {
 
         let tour_graph = MetricView::from_metric_on_nodes(nodes, metric, None, None);
 
-        let max_rd: usize = distinct_release_dates.values().copied().max().unwrap_or_else(|| 0);
+        let max_rd: usize = distinct_release_dates
+            .values()
+            .copied()
+            .max()
+            .unwrap_or_else(|| 0);
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
         tsp::tsp_rd_tour(
             &tour_graph,
@@ -129,14 +132,22 @@ impl Instance {
         )
     }
 
-    pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> usize where M: Metric + Clone + Debug {
+    pub fn lower_bound<M>(&self, start_node: Node, metric: &M) -> usize
+    where
+        M: Metric + Clone + Debug,
+    {
         if self.requests.is_empty() {
-            return 0
+            return 0;
         }
 
         let (approx, _) = self.optimal_solution(start_node, metric, SolutionType::Approx);
         let lb1 = (approx.as_float() / 2.5).floor() as usize;
-        let lb2 = self.requests.iter().map(|(node, r)| *r + metric.distance(start_node, *node).get_usize()).max().unwrap();
+        let lb2 = self
+            .requests
+            .iter()
+            .map(|(node, r)| *r + metric.distance(start_node, *node).get_usize())
+            .max()
+            .unwrap();
 
         lb1.max(lb2)
     }

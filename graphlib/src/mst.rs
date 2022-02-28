@@ -124,7 +124,7 @@ where
 #[cfg(test)]
 mod test_prims {
     use super::*;
-    use crate::{GraphSize, TotalWeight, Graph};
+    use crate::{Graph, GraphSize, TotalWeight};
 
     ///   1 --5-- 2 --1-- 3
     ///  |3|     |1|     |3|

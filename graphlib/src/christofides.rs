@@ -17,8 +17,7 @@ use std::io::{BufRead, Write};
 use crate::metric::Metric;
 use crate::mst::prims_tree;
 use crate::{
-    cost::Cost, Adjacency, Edge, Graph, GraphSize, MultiGraph, Node, NodeSet,
-    TotalWeight, Tour,
+    cost::Cost, Adjacency, Edge, Graph, GraphSize, MultiGraph, Node, NodeSet, TotalWeight, Tour,
 };
 use crate::{Nodes, Weighted};
 
@@ -478,9 +477,9 @@ where
 
 #[cfg(test)]
 mod test_christofides {
-    use crate::{christofides::*, AdjListGraph};
     use crate::metric::{MetricCompletion, SpMetricGraph};
     use crate::mst::prims_tree;
+    use crate::{christofides::*, AdjListGraph};
 
     ///   1 --5-- 2 --1-- 3
     ///  |3|     |1|     |3|

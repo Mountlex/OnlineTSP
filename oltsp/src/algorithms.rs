@@ -444,12 +444,16 @@ pub fn learning_augmented(
 
     // Phase (iii)
     loop {
-
         let start_time = env.time;
 
         // current metric graph
         let mut tour_nodes = [env.current_nodes(), open_preds.clone()].concat();
-        log::info!("Predict-Replan: replanning at time {}. pos = {}, tour nodes = {:?}", env.time, env.pos, tour_nodes);
+        log::info!(
+            "Predict-Replan: replanning at time {}. pos = {}, tour nodes = {:?}",
+            env.time,
+            env.pos,
+            tour_nodes
+        );
         tour_nodes.sort();
         tour_nodes.dedup();
         let tour_graph = MetricView::from_metric_on_nodes(
@@ -468,7 +472,11 @@ pub fn learning_augmented(
             .iter()
             .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
             .collect();
-        let max_rd: usize = updated_release_dates.values().copied().max().unwrap_or_else(|| 0);
+        let max_rd: usize = updated_release_dates
+            .values()
+            .copied()
+            .max()
+            .unwrap_or_else(|| 0);
         let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
         let (_, tour) = tsp::tsp_rd_path(
             // in this tour, the algorithm only waits until a requests arrives at the current point
@@ -523,7 +531,6 @@ pub fn learning_augmented(
             // wait until next release
             env.time = env.time.max(env.next_release.unwrap());
         }
-
 
         // Add released requests
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
