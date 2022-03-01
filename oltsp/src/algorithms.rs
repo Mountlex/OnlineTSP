@@ -345,7 +345,7 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
 
 
             if let Some(back_until) = back_until {
-                assert!(env.time + distance_back <= back_until);
+                assert!(env.time + tour_graph.distance(env.origin, edge[0]).get_usize() <= back_until);
                 if distance_back + length + env.time > back_until {
                     env.pos = env.origin;
                     env.time += distance_back;
