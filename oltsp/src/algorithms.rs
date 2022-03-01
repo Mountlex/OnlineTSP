@@ -70,48 +70,45 @@ impl<'a> Environment<'a, AdjListGraph> {
 
     fn follow_tour_and_be_back_by(
         &mut self,
+        tour_graph: &MetricView<ShortestPathsCache>,
         tour: TimedTour,
         time_back: usize,
     ) -> (bool, Vec<Node>) {
         assert_eq!(Some(&self.pos), tour.nodes().first());
-        assert!(self.metric.distance(self.origin, self.pos).get_usize() + self.time <= time_back);
+        assert!(tour_graph.distance(self.origin, self.pos).get_usize() + self.time <= time_back);
 
         // nodes that we visited until its release date in tour
         let mut served_nodes: Vec<Node> = vec![];
 
         for (edge, source_wait) in tour.nodes().windows(2).zip(tour.waiting_until()) {
-            let start_time = if let Some(source_wait) = source_wait {
-                // wait until source_wait before we traverse edge, if this time has not passed yet.
-                self.time.max(*source_wait)
-            } else {
-                self.time
-            };
-
-            let length = self.metric.distance(edge[0], edge[1]);
-            if self.metric.distance(self.origin, edge[1]).get_usize()
-                + start_time
-                + length.get_usize()
-                <= time_back
-            {
-                served_nodes.push(edge[0]);
-                self.pos = edge[1];
-                self.time = start_time + length.get_usize();
-            } else {
-                // move back to the origin
-                let back_distance = self.metric.distance(self.origin, self.pos).get_usize();
-
-                if start_time + back_distance <= time_back {
-                    // serve current request
-                    served_nodes.push(self.pos);
-                    self.time = start_time + back_distance
-                } else {
-                    self.time += back_distance;
+            let distance_back = tour_graph.distance(self.origin, edge[1]).get_usize();
+            if let Some(source_wait) = source_wait {
+                if *source_wait + distance_back > time_back  {
+                    self.time = time_back;
+                    self.pos = self.origin;
+                    return (true, served_nodes);
                 }
+
+                // wait until source_wait before we traverse edge, if this time has not passed yet.
+                self.time = self.time.max(*source_wait);
+            }
+            let length = tour_graph.distance(edge[0], edge[1]).get_usize();
+            // we leave edge[0]
+            served_nodes.push(edge[0]);
+      
+            // we cannot reach edge[1]
+            if self.time + length + distance_back > time_back  {
                 self.pos = self.origin;
                 served_nodes.push(self.pos);
+                self.time += distance_back;
                 return (true, served_nodes);
+            } else {
+                self.time += length;
+                self.pos = edge[1];
             }
+            
         }
+
         served_nodes.push(self.pos);
         (false, served_nodes)
     }
@@ -217,7 +214,7 @@ pub fn ignore(
         let (_, tour) = tsp::tsp_tour(&tour_graph, env.origin, sol_type);
         let start_time = env.time;
         if let Some(back) = back_until {
-            let (abort, served) = env.follow_tour_and_be_back_by(TimedTour::from_tour(tour), back);
+            let (abort, served) = env.follow_tour_and_be_back_by(&tour_graph, TimedTour::from_tour(tour), back);
             env.remove_served_requests(&served);
             if abort {
                 return env.time;
