@@ -338,16 +338,15 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
         let mut served_nodes: Vec<Node> = vec![];
 
         for edge in tour.windows(2) {
-            let distance_back = tour_graph.distance(env.origin, edge[1]).get_usize();
             let length = tour_graph.distance(edge[0], edge[1]).get_usize();
             // we leave edge[0]
             served_nodes.push(edge[0]);
 
             if let Some(back_until) = back_until {
                 assert!(env.time + tour_graph.distance(env.origin, edge[0]).get_usize() <= back_until);
-                if distance_back + length + env.time > back_until {
+                if tour_graph.distance(env.origin, edge[1]).get_usize() + length + env.time > back_until {
                     env.pos = env.origin;
-                    env.time += distance_back;
+                    env.time += tour_graph.distance(env.origin, edge[0]).get_usize();
                     break
                 }               
             }
