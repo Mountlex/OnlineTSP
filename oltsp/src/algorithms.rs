@@ -336,16 +336,20 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
             // we leave edge[0]
             served_nodes.push(edge[0]);
 
+
             if let Some(back_until) = back_until {
+                assert!(env.time + distance_back <= back_until);
                 if distance_back + length + env.time > back_until {
                     env.pos = env.origin;
                     env.time += distance_back;
                     break
-                }
-                
+                }               
             }
 
-            if let Some(until_time) = env.next_release {
+            if let Some(mut until_time) = env.next_release {
+
+                
+
                 // we cannot reach edge[1]
                 if env.time + length > until_time {
                     if env.time == until_time {
