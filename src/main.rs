@@ -7,7 +7,7 @@ use graphlib::{
     tsp, Metric, MetricView, Node, Nodes,
 };
 use oltsp::{
-    gaussian_prediction, ignore, instance_from_file, learning_augmented, replan, smartstart,
+    gaussian_prediction, ignore, instance_from_file, smart_trust, delayed_trust, replan, smartstart,
     Instance,
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -184,12 +184,27 @@ fn main() -> Result<()> {
                             let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, 1.0);
                             let mut results: Vec<Exp1Result> = vec![];
 
-                            [0.0, 0.1, 0.25, 0.5, 1.0].iter().for_each(|alpha| {
+                            [0.0, 0.1, 0.25, 0.5].iter().for_each(|alpha| {
                                 results.push(Exp1Result {
-                                    name: "pred".into(),
+                                    name: "smart_trust".into(),
                                     param: *alpha,
                                     opt: lb as u64,
-                                    alg: learning_augmented(
+                                    alg: smart_trust(
+                                        &graph,
+                                        &sp,
+                                        instance.clone(),
+                                        start_node,
+                                        *alpha,
+                                        pred.clone(),
+                                        graphlib::tsp::SolutionType::Approx,
+                                    ) as u64,
+                                    sigma,
+                                });
+                                results.push(Exp1Result {
+                                    name: "delayed_trust".into(),
+                                    param: *alpha,
+                                    opt: lb as u64,
+                                    alg: delayed_trust(
                                         &graph,
                                         &sp,
                                         instance.clone(),
@@ -291,10 +306,10 @@ fn main() -> Result<()> {
 
                             [0.0, 0.1, 0.5, 1.0, 5.0].iter().for_each(|alpha| {
                                 results.push(Exp2Result {
-                                    name: "pred".into(),
+                                    name: "smart_trust".into(),
                                     param: *alpha,
                                     opt: lb as u64,
-                                    alg: learning_augmented(
+                                    alg: smart_trust(
                                         &graph,
                                         &sp,
                                         instance.clone(),

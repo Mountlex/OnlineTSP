@@ -314,7 +314,7 @@ pub fn smartstart(
     }
 }
 
-pub fn replan(env: &mut Environment<AdjListGraph>, sol_type: SolutionType) -> usize {
+pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, sol_type: SolutionType) -> usize {
     log::info!("======== Starting REPLAN");
     loop {
         let start_time = env.time;
@@ -329,9 +329,40 @@ pub fn replan(env: &mut Environment<AdjListGraph>, sol_type: SolutionType) -> us
         let (_, tour) = tsp::tsp_path(&tour_graph, env.pos, env.origin, sol_type);
         log::info!("Replan: current tour = {:?}", tour);
 
-        log::info!("Replan: follow tour until next release date");
-        let served = env.follow_tour_until_next_release(&tour_graph, TimedTour::from_tour(tour));
-        env.remove_served_requests(&served);
+        if let Some(next_release) = env.next_release {
+            if let Some(back_until) = back_until {
+                if next_release < back_until {
+                    log::info!("Replan: follow tour until next release date");
+                    let served = env.follow_tour_until_next_release(&tour_graph, TimedTour::from_tour(tour));
+                    env.remove_served_requests(&served);
+                } else {
+                    let served = env.follow_tour_until_time(&tour_graph, TimedTour::from_tour(tour), Some(back_until));
+                    env.remove_served_requests(&served);
+                    let tour_graph = MetricView::from_metric_on_nodes(
+                        env.current_nodes(),
+                        env.metric,
+                        env.virtual_node,
+                        env.buffer.clone(),
+                    );
+                    env.time += tour_graph.distance(env.pos, env.origin).get_usize();
+                    env.pos = env.origin;
+                    return env.time
+                }
+            }
+        } else {
+            let served = env.follow_tour_until_time(&tour_graph, TimedTour::from_tour(tour), back_until);
+            env.remove_served_requests(&served);
+            let tour_graph = MetricView::from_metric_on_nodes(
+                        env.current_nodes(),
+                        env.metric,
+                        env.virtual_node,
+                        env.buffer.clone(),
+                    );
+            env.time += tour_graph.distance(env.pos, env.origin).get_usize();
+            env.pos = env.origin;
+            return env.time
+        }
+        
 
         if env.next_release.is_none() {
             assert_eq!(env.pos, env.origin);
@@ -340,11 +371,16 @@ pub fn replan(env: &mut Environment<AdjListGraph>, sol_type: SolutionType) -> us
         }
 
         // wait until next release
-        let wait_until = env.time.max(env.next_release.unwrap());
-        if wait_until > env.time {
-            log::info!("Replan: wait until {}", wait_until);
+        if let Some(next_release) = env.next_release {
+            if let Some(back_until) = back_until {
+                if back_until < next_release {
+                    return back_until
+                }
+            } 
+            env.time = env.time.max(next_release)
         }
-        env.time = wait_until;
+
+        
 
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
         log::info!(
@@ -357,7 +393,162 @@ pub fn replan(env: &mut Environment<AdjListGraph>, sol_type: SolutionType) -> us
     }
 }
 
-pub fn learning_augmented(
+fn predict_replan(env: &mut Environment<AdjListGraph>,
+    prediction: Instance,
+    sol_type: SolutionType) -> usize {
+        let release_dates: FxHashMap<Node, usize> = prediction.release_dates();
+
+        // only consider predicted requests that are released after now
+        let mut open_preds: Vec<Node> = prediction
+            .distinct_nodes()
+            .into_iter()
+            .filter(|n| release_dates[n] > env.time)
+            .collect();
+    
+        // If the next release date is already due, get new requests
+        if let Some(next_release) = env.next_release {
+            if next_release <= env.time {
+                let (new_requests, next_release) =
+                    env.instance.released_between(next_release, env.time);
+                env.add_requests(new_requests);
+                env.next_release = next_release;
+            }
+        }
+    
+        log::info!(
+            "Predict-Replan: Start phase (iii) at time {}; next release {:?}",
+            env.time,
+            env.next_release
+        );
+    
+        // Compute interesting time points
+        let mut time_points: Vec<usize> = open_preds.iter().map(|n| release_dates[n]).collect();
+        time_points.append(
+            &mut env
+                .instance
+                .release_dates()
+                .values()
+                .filter(|&r| *r > env.time)
+                .copied()
+                .collect::<Vec<usize>>(),
+        );
+        time_points.sort();
+        time_points.dedup();
+    
+        if env.time == 0 {
+            for &pred in &open_preds {
+                for (req, r) in env.instance.reqs() {
+                    if pred == *req && *r == release_dates[&pred] {
+                        time_points.retain(|t| t != r);
+                    }
+                }
+            }
+        }
+    
+        //assert!((time_points.is_empty() && env.next_release.is_none()) || (time_points[0] > env.time));
+    
+        let mut i = 0;
+        let start_phase_three = env.time;
+    
+        // Phase (iii)
+        loop {
+            let start_time = env.time;
+    
+            // current metric graph
+            let mut tour_nodes = [env.current_nodes(), open_preds.clone()].concat();
+            log::info!(
+                "Predict-Replan: replanning at time {}. pos = {}, tour nodes = {:?}",
+                env.time,
+                env.pos,
+                tour_nodes
+            );
+            tour_nodes.sort();
+            tour_nodes.dedup();
+            let tour_graph = MetricView::from_metric_on_nodes(
+                tour_nodes,
+                env.metric,
+                env.virtual_node,
+                env.buffer.clone(),
+            );
+            assert!(
+                tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
+            );
+    
+            // compute tour
+            // update release date w.r.t. current time
+            let updated_release_dates: FxHashMap<Node, usize> = release_dates
+                .iter()
+                .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
+                .collect();
+            let max_rd: usize = updated_release_dates
+                .values()
+                .copied()
+                .max()
+                .unwrap_or_else(|| 0);
+            let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
+            let (_, tour) = tsp::tsp_rd_path(
+                // in this tour, the algorithm only waits until a requests arrives at the current point
+                &tour_graph,
+                &updated_release_dates,
+                env.pos,
+                env.origin,
+                max_t,
+                sol_type,
+            );
+            log::info!("Predict-Replan: current tour = {}", tour);
+    
+            // follow tour
+            if i < time_points.len() {
+                log::info!("Predict-Replan: follow tour until time {}", time_points[i]);
+                let served = env.follow_tour_until_time(&tour_graph, tour, Some(time_points[i]));
+                i += 1;
+                env.remove_served_requests(&served);
+            } else {
+                log::info!("Predict-Replan: follow tour until origin");
+                env.follow_tour_until_time(&tour_graph, tour, None);
+                return env.time;
+            }
+    
+            // Checks
+            assert!(env.time <= time_points[i - 1]);
+            let mut tour_nodes = [env.current_nodes(), open_preds.clone()].concat();
+            tour_nodes.sort();
+            tour_nodes.dedup();
+            let tour_graph = MetricView::from_metric_on_nodes(
+                tour_nodes,
+                env.metric,
+                env.virtual_node,
+                env.buffer.clone(),
+            );
+            assert!(
+                tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
+            );
+    
+            if env.next_release.is_none() && env.open_requests.is_empty() {
+                if env.pos == env.origin {
+                    return env.time;
+                } else {
+                    return env.time + tour_graph.distance(env.pos, env.origin).get_usize();
+                }
+            }
+    
+            // Only consider future predictions
+            open_preds.retain(|n| release_dates[n] > env.time);
+    
+            if open_preds.is_empty() && env.next_release.is_some() {
+                // wait until next release
+                env.time = env.time.max(env.next_release.unwrap());
+            }
+    
+            // Add released requests
+            let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
+            log::info!("New requests: {:?}", new_requests);
+            env.add_requests(new_requests);
+            env.next_release = next_release;
+        }
+    }
+
+pub fn smart_trust(
     env: &mut Environment<AdjListGraph>,
     alpha: f64,
     prediction: Instance,
@@ -390,156 +581,40 @@ pub fn learning_augmented(
     env.time = env.time.max((opt_pred * alpha / 2.0).floor() as usize);
 
     // Phase (iii)
-    let release_dates: FxHashMap<Node, usize> = prediction.release_dates();
+    predict_replan(env, prediction, sol_type)
+}
 
-    // only consider predicted requests that are released after now
-    let mut open_preds: Vec<Node> = prediction
-        .distinct_nodes()
-        .into_iter()
-        .filter(|n| release_dates[n] > env.time)
-        .collect();
+pub fn  delayed_trust(
+    env: &mut Environment<AdjListGraph>,
+    alpha: f64,
+    prediction: Instance,
+    sol_type: SolutionType,
+) -> usize {
+    log::info!("======== Starting Predict-Replan with alpha = {}.", &alpha);
 
-    // If the next release date is already due, get new requests
-    if let Some(next_release) = env.next_release {
-        if next_release <= env.time {
-            let (new_requests, next_release) =
-                env.instance.released_between(next_release, env.time);
-            env.add_requests(new_requests);
-            env.next_release = next_release;
-        }
-    }
+    // Phase (i)
+    let opt_pred = prediction
+        .optimal_solution(env.origin, env.metric, sol_type)
+        .0
+        .as_float();
+    let back_until = (opt_pred * alpha).floor() as usize;
 
     log::info!(
-        "Predict-Replan: Start phase (iii) at time {}; next release {:?}",
-        env.time,
-        env.next_release
+        "Predict-Replan: execute SMARTSTART until time {}.",
+        back_until
     );
+    replan(env, Some(back_until), sol_type);
 
-    // Compute interesting time points
-    let mut time_points: Vec<usize> = open_preds.iter().map(|n| release_dates[n]).collect();
-    time_points.append(
-        &mut env
-            .instance
-            .release_dates()
-            .values()
-            .filter(|&r| *r > env.time)
-            .copied()
-            .collect::<Vec<usize>>(),
-    );
-    time_points.sort();
-    time_points.dedup();
+    assert_eq!(env.pos, env.origin);
+    assert!(env.time <= back_until);
 
-    if env.time == 0 {
-        for &pred in &open_preds {
-            for (req, r) in env.instance.reqs() {
-                if pred == *req && *r == release_dates[&pred] {
-                    time_points.retain(|t| t != r);
-                }
-            }
-        }
+    // If all actual requests are served
+    if env.next_release.is_none() && env.open_requests.is_empty() {
+        return env.time;
     }
-
-    //assert!((time_points.is_empty() && env.next_release.is_none()) || (time_points[0] > env.time));
-
-    let mut i = 0;
-    let start_phase_three = env.time;
 
     // Phase (iii)
-    loop {
-        let start_time = env.time;
-
-        // current metric graph
-        let mut tour_nodes = [env.current_nodes(), open_preds.clone()].concat();
-        log::info!(
-            "Predict-Replan: replanning at time {}. pos = {}, tour nodes = {:?}",
-            env.time,
-            env.pos,
-            tour_nodes
-        );
-        tour_nodes.sort();
-        tour_nodes.dedup();
-        let tour_graph = MetricView::from_metric_on_nodes(
-            tour_nodes,
-            env.metric,
-            env.virtual_node,
-            env.buffer.clone(),
-        );
-        assert!(
-            tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
-        );
-
-        // compute tour
-        // update release date w.r.t. current time
-        let updated_release_dates: FxHashMap<Node, usize> = release_dates
-            .iter()
-            .map(|(n, r)| (*n, (*r as i64 - start_time as i64).max(0) as usize))
-            .collect();
-        let max_rd: usize = updated_release_dates
-            .values()
-            .copied()
-            .max()
-            .unwrap_or_else(|| 0);
-        let max_t = mst::prims_cost(&tour_graph).get_usize() * 2 + max_rd;
-        let (_, tour) = tsp::tsp_rd_path(
-            // in this tour, the algorithm only waits until a requests arrives at the current point
-            &tour_graph,
-            &updated_release_dates,
-            env.pos,
-            env.origin,
-            max_t,
-            sol_type,
-        );
-        log::info!("Predict-Replan: current tour = {}", tour);
-
-        // follow tour
-        if i < time_points.len() {
-            log::info!("Predict-Replan: follow tour until time {}", time_points[i]);
-            let served = env.follow_tour_until_time(&tour_graph, tour, Some(time_points[i]));
-            i += 1;
-            env.remove_served_requests(&served);
-        } else {
-            log::info!("Predict-Replan: follow tour until origin");
-            env.follow_tour_until_time(&tour_graph, tour, None);
-            return env.time;
-        }
-
-        // Checks
-        assert!(env.time <= time_points[i - 1]);
-        let mut tour_nodes = [env.current_nodes(), open_preds.clone()].concat();
-        tour_nodes.sort();
-        tour_nodes.dedup();
-        let tour_graph = MetricView::from_metric_on_nodes(
-            tour_nodes,
-            env.metric,
-            env.virtual_node,
-            env.buffer.clone(),
-        );
-        assert!(
-            tour_graph.distance(env.origin, env.pos).get_usize() <= env.time - start_phase_three
-        );
-
-        if env.next_release.is_none() && env.open_requests.is_empty() {
-            if env.pos == env.origin {
-                return env.time;
-            } else {
-                return env.time + tour_graph.distance(env.pos, env.origin).get_usize();
-            }
-        }
-
-        // Only consider future predictions
-        open_preds.retain(|n| release_dates[n] > env.time);
-
-        if open_preds.is_empty() && env.next_release.is_some() {
-            // wait until next release
-            env.time = env.time.max(env.next_release.unwrap());
-        }
-
-        // Add released requests
-        let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
-        log::info!("New requests: {:?}", new_requests);
-        env.add_requests(new_requests);
-        env.next_release = next_release;
-    }
+    predict_replan(env, prediction, sol_type)
 }
 
 #[cfg(test)]
@@ -654,7 +729,7 @@ mod test_algorithms {
         let instance = vec![(3, 0), (6, 0), (2, 7), (5, 7)].into();
         let mut env = Environment::init(&graph, metric_graph.metric_ref(), instance, 1.into());
 
-        let cost = replan(&mut env, SolutionType::Optimal);
+        let cost = replan(&mut env, None, SolutionType::Optimal);
         assert_eq!(cost, 7 + 11)
     }
 
@@ -680,7 +755,7 @@ mod test_algorithms {
             instance.clone(),
             1.into(),
         );
-        let cost = replan(&mut env, SolutionType::Optimal);
+        let cost = replan(&mut env, None, SolutionType::Optimal);
         assert_eq!(cost, 0);
     }
 }

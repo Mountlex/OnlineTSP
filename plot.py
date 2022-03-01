@@ -67,7 +67,7 @@ def plot(filename, save):
         plt.savefig(f"{f}_zoom.pdf")
     else:
         ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
-        plt.ylim(bottom=0.9, top=2.3)
+        plt.ylim(bottom=0.9, top=2.5)
         plt.xlabel("Fraction of instance as prediction")      
         plt.tight_layout()
         plt.savefig(f"{f}.pdf")

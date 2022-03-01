@@ -15,7 +15,7 @@ pub fn replan(
     sol_type: SolutionType,
 ) -> usize {
     let mut env = Environment::init(graph, metric, instance, start_node);
-    algorithms::replan(&mut env, sol_type)
+    algorithms::replan(&mut env, None, sol_type)
 }
 
 pub fn ignore(
@@ -40,7 +40,7 @@ pub fn smartstart(
     algorithms::smartstart(&mut env, None, sol_type)
 }
 
-pub fn learning_augmented(
+pub fn smart_trust(
     graph: &AdjListGraph,
     metric: &ShortestPathsCache,
     instance: Instance,
@@ -50,5 +50,18 @@ pub fn learning_augmented(
     sol_type: SolutionType,
 ) -> usize {
     let mut env = Environment::init(graph, metric, instance, start_node);
-    algorithms::learning_augmented(&mut env, alpha, prediction, sol_type)
+    algorithms::smart_trust(&mut env, alpha, prediction, sol_type)
+}
+
+pub fn delayed_trust(
+    graph: &AdjListGraph,
+    metric: &ShortestPathsCache,
+    instance: Instance,
+    start_node: Node,
+    alpha: f64,
+    prediction: Instance,
+    sol_type: SolutionType,
+) -> usize {
+    let mut env = Environment::init(graph, metric, instance, start_node);
+    algorithms::delayed_trust(&mut env, alpha, prediction, sol_type)
 }
