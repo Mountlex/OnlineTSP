@@ -343,7 +343,6 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
             // we leave edge[0]
             served_nodes.push(edge[0]);
 
-
             if let Some(back_until) = back_until {
                 assert!(env.time + tour_graph.distance(env.origin, edge[0]).get_usize() <= back_until);
                 if distance_back + length + env.time > back_until {
@@ -353,35 +352,33 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
                 }               
             }
 
-            if let Some(mut until_time) = env.next_release {
-
-                
+            if let Some(next_release) = env.next_release {
 
                 // we cannot reach edge[1]
-                if env.time + length > until_time {
-                    if env.time == until_time {
+                if env.time + length > next_release {
+                    if env.time == next_release {
                         break;
                     }
 
-                    assert!(env.time <= until_time);
+                    assert!(env.time <= next_release);
                     assert!(tour_graph.distance(env.origin, edge[0]).get_usize() <= env.time);
 
                     let (pos, buffer) = tour_graph.split_virtual_edge(
                         edge[0],
                         edge[1],
-                        Cost::new(until_time - env.time),
+                        Cost::new(next_release - env.time),
                         &mut env.base_graph,
                     );
                     if buffer.is_some() {
                         assert!(
-                            buffer.as_ref().unwrap().get(env.origin).get_usize() <= until_time
+                            buffer.as_ref().unwrap().get(env.origin).get_usize() <= next_release
                         );
                         env.virtual_node = Some(pos);
                         env.buffer = buffer;
                     }
 
                     env.pos = pos;
-                    env.time = until_time;
+                    env.time = next_release;
                     break;
                 }
             }
@@ -405,6 +402,7 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
                     return back_until
                 }
             } 
+            assert!(env.time == next_release || env.pos == env.origin);
             env.time = env.time.max(next_release)
         }
 
