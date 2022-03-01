@@ -348,7 +348,8 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
                     env.pos = env.origin;
                     env.time += tour_graph.distance(env.origin, edge[0]).get_usize();
                     served_nodes.push(env.pos);
-                    break 'tour_loop;
+                    env.remove_served_requests(&served_nodes);
+                    return env.time;
                 }               
             }
 
@@ -391,7 +392,7 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
 
         if env.next_release.is_none() {
             assert_eq!(env.pos, env.origin);
-            assert!(env.open_requests.is_empty() || back_until.is_some());
+            assert!(env.open_requests.is_empty());
             return env.time;
         }
 
