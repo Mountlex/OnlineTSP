@@ -23,10 +23,12 @@ def legend(name, param):
         return f"Replan"
     elif "ignore" in name:
         return f"Ignore"
+    elif "smart_trust" in name:
+        return f"SmartTrust (α={param})"
+    elif "delayed_trust" in name:
+        return f"DelayedTrust (α={param})"
     elif "smart" in name:
         return f"SmartStart"
-    elif "pred" in name:
-        return f"SmartTrust (α={param})"
     else:
         return "unknown"
 
