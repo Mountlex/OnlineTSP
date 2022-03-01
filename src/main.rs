@@ -7,8 +7,8 @@ use graphlib::{
     tsp, Metric, MetricView, Node, Nodes,
 };
 use oltsp::{
-    gaussian_prediction, ignore, instance_from_file, smart_trust, delayed_trust, replan, smartstart,
-    Instance,
+    delayed_trust, gaussian_prediction, ignore, instance_from_file, replan, smart_trust,
+    smartstart, Instance,
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
