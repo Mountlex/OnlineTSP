@@ -314,11 +314,9 @@ pub fn smartstart(
 pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, sol_type: SolutionType) -> usize {
     log::info!("======== Starting REPLAN");
 
-    if let Some(back_until) = back_until {
-        assert!(env.time <= back_until)
-    }
-
+    
     loop {
+        
         let start_time = env.time;
 
         log::info!("Replan: compute tsp path from {} to origin", env.pos);
@@ -332,6 +330,10 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
         log::info!("Replan: current tour = {:?}", tour);
 
        
+        if let Some(back_until) = back_until {
+            assert!(env.time + tour_graph.distance(env.pos, env.origin).get_usize() <= back_until);
+        }
+
         // nodes that we visited until its release date in tour
         let mut served_nodes: Vec<Node> = vec![];
 
