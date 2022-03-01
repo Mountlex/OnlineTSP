@@ -337,7 +337,7 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
         // nodes that we visited until its release date in tour
         let mut served_nodes: Vec<Node> = vec![];
 
-        for edge in tour.windows(2) {
+        'tour_loop: for edge in tour.windows(2) {
             let length = tour_graph.distance(edge[0], edge[1]).get_usize();
             // we leave edge[0]
             served_nodes.push(edge[0]);
@@ -347,7 +347,8 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
                 if tour_graph.distance(env.origin, edge[1]).get_usize() + length + env.time > back_until {
                     env.pos = env.origin;
                     env.time += tour_graph.distance(env.origin, edge[0]).get_usize();
-                    break
+                    served_nodes.push(env.pos);
+                    break 'tour_loop;
                 }               
             }
 
@@ -356,7 +357,7 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
                 // we cannot reach edge[1]
                 if env.time + length > next_release {
                     if env.time == next_release {
-                        break;
+                        break 'tour_loop;
                     }
 
                     assert!(env.time <= next_release);
@@ -378,7 +379,7 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
 
                     env.pos = pos;
                     env.time = next_release;
-                    break;
+                    break 'tour_loop;
                 }
             }
             env.pos = edge[1];
@@ -390,7 +391,7 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
 
         if env.next_release.is_none() {
             assert_eq!(env.pos, env.origin);
-            assert!(env.open_requests.is_empty());
+            assert!(env.open_requests.is_empty() || back_until.is_some());
             return env.time;
         }
 
