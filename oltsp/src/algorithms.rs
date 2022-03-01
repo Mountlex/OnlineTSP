@@ -326,40 +326,60 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
         let (_, tour) = tsp::tsp_path(&tour_graph, env.pos, env.origin, sol_type);
         log::info!("Replan: current tour = {:?}", tour);
 
-        if let Some(next_release) = env.next_release {
+       
+        // nodes that we visited until its release date in tour
+        let mut served_nodes: Vec<Node> = vec![];
+
+        for edge in tour.windows(2) {
+            let distance_back = tour_graph.distance(env.origin, edge[1]).get_usize();
+            let length = tour_graph.distance(edge[0], edge[1]).get_usize();
+            // we leave edge[0]
+            served_nodes.push(edge[0]);
+
             if let Some(back_until) = back_until {
-                if next_release < back_until {
-                    log::info!("Replan: follow tour until next release date");
-                    let served = env.follow_tour_until_next_release(&tour_graph, TimedTour::from_tour(tour));
-                    env.remove_served_requests(&served);
-                } else {
-                    let served = env.follow_tour_until_time(&tour_graph, TimedTour::from_tour(tour), Some(back_until));
-                    env.remove_served_requests(&served);
-                    let tour_graph = MetricView::from_metric_on_nodes(
-                        env.current_nodes(),
-                        env.metric,
-                        env.virtual_node,
-                        env.buffer.clone(),
-                    );
-                    env.time += tour_graph.distance(env.pos, env.origin).get_usize();
+                if distance_back + length + env.time > back_until {
                     env.pos = env.origin;
-                    return env.time
+                    env.time += distance_back;
+                    break
+                }
+                
+            }
+
+            if let Some(until_time) = env.next_release {
+                // we cannot reach edge[1]
+                if env.time + length > until_time {
+                    if env.time == until_time {
+                        break;
+                    }
+
+                    assert!(env.time <= until_time);
+                    assert!(tour_graph.distance(env.origin, edge[0]).get_usize() <= env.time);
+
+                    let (pos, buffer) = tour_graph.split_virtual_edge(
+                        edge[0],
+                        edge[1],
+                        Cost::new(until_time - env.time),
+                        &mut env.base_graph,
+                    );
+                    if buffer.is_some() {
+                        assert!(
+                            buffer.as_ref().unwrap().get(env.origin).get_usize() <= until_time
+                        );
+                        env.virtual_node = Some(pos);
+                        env.buffer = buffer;
+                    }
+
+                    env.pos = pos;
+                    env.time = until_time;
+                    break;
                 }
             }
-        } else {
-            let served = env.follow_tour_until_time(&tour_graph, TimedTour::from_tour(tour), back_until);
-            env.remove_served_requests(&served);
-            let tour_graph = MetricView::from_metric_on_nodes(
-                        env.current_nodes(),
-                        env.metric,
-                        env.virtual_node,
-                        env.buffer.clone(),
-                    );
-            env.time += tour_graph.distance(env.pos, env.origin).get_usize();
-            env.pos = env.origin;
-            return env.time
+            env.pos = edge[1];
+            env.time += length;
         }
-        
+
+        served_nodes.push(env.pos);
+        env.remove_served_requests(&served_nodes);
 
         if env.next_release.is_none() {
             assert_eq!(env.pos, env.origin);
@@ -376,8 +396,6 @@ pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, so
             } 
             env.time = env.time.max(next_release)
         }
-
-        
 
         let (new_requests, next_release) = env.instance.released_between(start_time, env.time);
         log::info!(
