@@ -313,6 +313,11 @@ pub fn smartstart(
 
 pub fn replan(env: &mut Environment<AdjListGraph>, back_until: Option<usize>, sol_type: SolutionType) -> usize {
     log::info!("======== Starting REPLAN");
+
+    if let Some(back_until) = back_until {
+        assert!(env.time <= back_until)
+    }
+
     loop {
         let start_time = env.time;
 
