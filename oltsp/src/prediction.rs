@@ -11,6 +11,8 @@ pub fn gaussian_prediction(
     nodes: &[Node],
     sigma: f64,
     rel_num_pred: f64,
+    correct_rd: bool,
+    correct_loc: bool,
 ) -> Instance {
     let mut rng = rand::thread_rng();
 
@@ -30,7 +32,11 @@ pub fn gaussian_prediction(
         .reqs()
         .iter()
         .map(|(x, t)| {
-            let pred_t = (*t as f64 + dist.sample(&mut rng)).max(0.0).round() as usize;
+            let pred_t = if correct_rd {
+                *t
+            } else {
+                (*t as f64 + dist.sample(&mut rng)).max(0.0).round() as usize
+            };
 
             // TODO
             let pred_dist = dist.sample(&mut rng).abs();
@@ -45,6 +51,11 @@ pub fn gaussian_prediction(
                     break;
                 }
             }
+
+            if correct_loc {
+                pred_n = *x;
+            }
+
             (pred_n, pred_t)
         })
         .choose_multiple(&mut rand::thread_rng(), n_pred);

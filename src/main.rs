@@ -32,6 +32,12 @@ struct Exp1 {
     #[clap(long = "wc-rd")]
     wc_rd: bool,
 
+    #[clap(long = "correct-rd")]
+    correct_rd: bool,
+
+    #[clap(long = "correct-loc")]
+    correct_loc: bool,
+
     #[clap(long = "num-sigma", default_value = "10")]
     num_sigmas: i32,
 
@@ -181,7 +187,7 @@ fn main() -> Result<()> {
                         .into_iter()
                         .flat_map(|sigma_num| {
                             let sigma = exp.base_sigma.powi(sigma_num) - 1.0;
-                            let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, 1.0);
+                            let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, 1.0, exp.correct_rd, exp.correct_loc);
                             let mut results: Vec<Exp1Result> = vec![];
 
                             [0.0, 0.1, 0.25, 0.5].iter().for_each(|alpha| {
@@ -301,7 +307,7 @@ fn main() -> Result<()> {
                         .into_iter()
                         .flat_map(|num_p| {
                             let frac = num_p as f64 / (exp.num_predictions as f64 - 1.0);
-                            let pred = gaussian_prediction(&instance, &sp, &base_nodes, 0.0, frac);
+                            let pred = gaussian_prediction(&instance, &sp, &base_nodes, 0.0, frac, true, true);
                             let mut results: Vec<Exp2Result> = vec![];
 
                             [0.0, 0.1, 0.5, 1.0, 5.0].iter().for_each(|alpha| {
