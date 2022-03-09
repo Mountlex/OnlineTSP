@@ -42,6 +42,8 @@ def plot(filename, save):
     else:
         x_name = 'frac'
 
+    df = df[~df['name'].str.contains("delayed")]
+
     df = df.round(3)
     df['cr'] = df['alg'] / df['opt'] 
     df['param'] = df[['name','param']].apply(lambda x: legend(*x),axis=1)
