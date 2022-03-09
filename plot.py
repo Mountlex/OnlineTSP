@@ -51,6 +51,8 @@ def plot(filename, save):
     ax = sns.lineplot(data=df, x=x_name, y="cr", hue='param', style='param', markers=('frac' in list(df)), linewidth=2.5, markersize=8)
     handlers,_ = ax.get_legend_handles_labels()
  
+    
+
     fig = plt.gcf()
     fig.set_dpi(600)
     fig.set_size_inches(7,4)
@@ -58,7 +60,7 @@ def plot(filename, save):
     
     if 'sigma' in list(df):
         ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
-        #ax.set(xscale='symlog')
+        ax.set_xscale('symlog', base=10)
         plt.xlabel("Noise parameter")
 
         ax.set(yscale='log')
@@ -70,8 +72,17 @@ def plot(filename, save):
         plt.tight_layout()
         plt.savefig(f"{f}_zoom.pdf")
     else:
+        _,labels = ax.get_legend_handles_labels()
+        for p,l in zip(ax.get_lines(), labels):
+            if l == "Ignore" or l == "Replan" or l == "SmartStart":
+                p.set(marker=None)
+
+        for h,l in zip(handlers, labels):
+            if l == "Ignore" or l == "Replan" or l == "SmartStart":
+                h.set(marker=None)
         ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
         plt.ylim(bottom=0.9, top=2.5)
+        ax.invert_xaxis()
         plt.xlabel("Fraction of instance as prediction")      
         plt.tight_layout()
         plt.savefig(f"{f}.pdf")

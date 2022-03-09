@@ -37,7 +37,7 @@ pub fn smartstart(
     sol_type: SolutionType,
 ) -> usize {
     let mut env = Environment::init(graph, metric, instance, start_node);
-    algorithms::smartstart(&mut env, None, sol_type)
+    algorithms::smartstart(&mut env, None,2.302, sol_type)
 }
 
 pub fn smart_trust(

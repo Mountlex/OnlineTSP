@@ -240,6 +240,7 @@ pub fn ignore(
 pub fn smartstart(
     env: &mut Environment<AdjListGraph>,
     back_until: Option<usize>,
+    theta: f64,
     sol_type: SolutionType,
 ) -> usize {
     log::info!("======== Starting SMARTSTART");
@@ -254,13 +255,13 @@ pub fn smartstart(
         let (cost, tour) = tsp::tsp_tour(&tour_graph, env.origin, sol_type);
 
         let start_time = env.time;
-        if cost.get_usize() <= env.time {
+        if env.time as f64 + cost.get_usize() as f64 <= theta * env.time as f64 {
             // work
 
             if let Some(back) = back_until {
                 if env.time + cost.get_usize() > back {
                     return env.time;
-                }
+                } 
             }
             env.follow_tour(TimedTour::from_tour(tour.clone()));
             assert_eq!(env.time, start_time + cost.get_usize());
@@ -269,7 +270,7 @@ pub fn smartstart(
         } else {
             // sleep
 
-            let sleep_until = cost.get_usize();
+            let sleep_until = ((cost.as_float() / (theta - 1.0)).ceil() as usize).max(env.time);
 
             if let Some(back) = back_until {
                 if back <= sleep_until {
@@ -590,7 +591,7 @@ pub fn smart_trust(
         "Predict-Replan: execute SMARTSTART until time {}.",
         back_until
     );
-    smartstart(env, Some(back_until), sol_type);
+    smartstart(env, Some(back_until), 2.302 ,sol_type);
 
     assert_eq!(env.pos, env.origin);
     assert!(env.time <= back_until);
