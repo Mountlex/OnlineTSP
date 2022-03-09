@@ -190,7 +190,7 @@ fn main() -> Result<()> {
                             let pred = gaussian_prediction(&instance, &sp, &base_nodes, sigma, 1.0, exp.correct_rd, exp.correct_loc);
                             let mut results: Vec<Exp1Result> = vec![];
 
-                            [0.0, 0.1, 0.25, 0.5].iter().for_each(|alpha| {
+                            [0.0, 0.05, 0.1, 0.25, 0.5].iter().for_each(|alpha| {
                                 results.push(Exp1Result {
                                     name: "smart_trust".into(),
                                     param: *alpha,
@@ -206,21 +206,21 @@ fn main() -> Result<()> {
                                     ) as u64,
                                     sigma,
                                 });
-                                results.push(Exp1Result {
-                                    name: "delayed_trust".into(),
-                                    param: *alpha,
-                                    opt: lb as u64,
-                                    alg: delayed_trust(
-                                        &graph,
-                                        &sp,
-                                        instance.clone(),
-                                        start_node,
-                                        *alpha,
-                                        pred.clone(),
-                                        graphlib::tsp::SolutionType::Approx,
-                                    ) as u64,
-                                    sigma,
-                                });
+                                // results.push(Exp1Result {
+                                //     name: "delayed_trust".into(),
+                                //     param: *alpha,
+                                //     opt: lb as u64,
+                                //     alg: delayed_trust(
+                                //         &graph,
+                                //         &sp,
+                                //         instance.clone(),
+                                //         start_node,
+                                //         *alpha,
+                                //         pred.clone(),
+                                //         graphlib::tsp::SolutionType::Approx,
+                                //     ) as u64,
+                                //     sigma,
+                                // });
                             });
 
                             results.push(Exp1Result {
