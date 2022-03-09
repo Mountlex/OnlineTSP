@@ -11,3 +11,4 @@ data/osm/manhattan.dat
 *.svg
 perf.data
 /results
+copy.sh

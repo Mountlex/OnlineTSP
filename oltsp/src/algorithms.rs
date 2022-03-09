@@ -133,6 +133,15 @@ impl<'a> Environment<'a, AdjListGraph> {
                     }
                 }
 
+                if 2 * tour_graph.distance(self.pos, self.origin).get_usize() + self.time <= *source_wait {
+                    if self.open_requests.iter().filter(|n| !served_nodes.contains(n)).count() == 0 {
+                        log::warn!("There is enough time to go to origin and check whether we are finished. Stopping!");
+                        self.pos = self.origin;
+                        self.time = self.time + tour_graph.distance(self.pos, self.origin).get_usize();
+                        return served_nodes
+                    }
+                }
+
                 // wait until source_wait before we traverse edge, if this time has not passed yet.
                 self.time = self.time.max(*source_wait);
             }
