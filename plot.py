@@ -58,7 +58,7 @@ def plot(filename, save):
     
     if 'sigma' in list(df):
         ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
-        ax.set(xscale='symlog')
+        #ax.set(xscale='symlog')
         plt.xlabel("Noise parameter")
 
         ax.set(yscale='log')
