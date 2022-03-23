@@ -43,10 +43,14 @@ def plot(filename, save):
         x_name = 'frac'
 
     df = df[~df['name'].str.contains("delayed")]
+    df = df[df['param']!=0.05]
 
     df = df.round(3)
     df['cr'] = df['alg'] / df['opt'] 
     df['param'] = df[['name','param']].apply(lambda x: legend(*x),axis=1)
+
+    if 'frac' in list(df):
+        df['frac'] = 10 * df['frac']
 
     ax = sns.lineplot(data=df, x=x_name, y="cr", hue='param', style='param', markers=('frac' in list(df)), linewidth=2.5, markersize=8)
     handlers,_ = ax.get_legend_handles_labels()
@@ -61,14 +65,14 @@ def plot(filename, save):
     if 'sigma' in list(df):
         ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
         ax.set_xscale('symlog', base=10)
-        plt.xlabel("Noise parameter")
+        plt.xlabel("Noise parameter σ")
 
         ax.set(yscale='log')
         plt.tight_layout()
         plt.savefig(f"{f}.pdf")
 
         ax.set(yscale='linear')
-        plt.ylim(bottom=0.9, top=2.8)
+        plt.ylim(bottom=0.9, top=2.15)
         plt.tight_layout()
         plt.savefig(f"{f}_zoom.pdf")
     else:
@@ -81,9 +85,10 @@ def plot(filename, save):
             if l == "Ignore" or l == "Replan" or l == "SmartStart":
                 h.set(marker=None)
         ax.legend(handlers,df['param'].unique(),ncol=2, loc="upper left")
-        plt.ylim(bottom=0.9, top=2.5)
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        plt.ylim(bottom=0.9, top=2.3)
         ax.invert_xaxis()
-        plt.xlabel("Fraction of instance as prediction")      
+        plt.xlabel("Number of correctly predicted requests.")      
         plt.tight_layout()
         plt.savefig(f"{f}.pdf")
 
