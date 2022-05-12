@@ -7,8 +7,9 @@
 /*.pdf
 data/osm/manhattan.dat
 
+!data/*.csv
 
 *.svg
 perf.data
-/results
+results/*.pdf
 copy.sh

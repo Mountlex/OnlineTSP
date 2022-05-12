@@ -2,11 +2,25 @@
 
 ## Steps to reproduce results from paper
 
+Compile Blossom algorithm: 
+
+```bash
+cd blossom && make
+```
+
 Install rust: [https://rustup.rs/](https://rustup.rs/)
 
-Run in console
+Install Python dependencies
 
+```bash
+python -m venv env
+source env/bin/activate
+pip install seaborn
 ```
+
+Run in console (in base folder)
+
+```bash
 exps.sh
 plots.sh
 ```
