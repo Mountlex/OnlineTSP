@@ -9,6 +9,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
 def create_arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('file')
